@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+  id="Definitions_VoiceRecording"
+  targetNamespace="http://example.com/bpmn"
+  xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL http://www.omg.org/spec/BPMN/2.0/20100501/BPMN20.xsd">
+  
+  <process id="VoiceRecordingProcess" name="Voice Recording Workflow" isExecutable="true">
+    
+    <!-- Start Event -->
+    <startEvent id="StartEvent_1" name="Start Voice Recording">
+      <documentation>Initiates the voice recording workflow. User provides mobile number and records video.</documentation>
+      <outgoing>Flow_Start_Mobile</outgoing>
+    </startEvent>
+    
+    <!-- User Task: Collect Mobile Number -->
+    <userTask id="collect_mobile_number" name="Collect Mobile Number">
+      <documentation>User interface for collecting mobile number before video recording.</documentation>
+      <incoming>Flow_Start_Mobile</incoming>
+      <outgoing>Flow_Mobile_Record</outgoing>
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="mobile_number" label="Mobile Number" type="String" required="true"/>
+        </formData>
+      </extensionElements>
+    </userTask>
+    
+    <!-- User Task: Record Video -->
+    <userTask id="record_video" name="Record Video Message">
+      <documentation>User interface for recording video messages. Provides description field and recording controls (record, stop, save). Video is captured and stored in the browser using MediaRecorder API. On save, the video file is submitted as FormData along with the description.</documentation>
+      <incoming>Flow_Mobile_Record</incoming>
+      <outgoing>Flow_Record_Extract</outgoing>
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="description" label="Description" type="String" required="true"/>
+          <formField id="media_data" label="Video Recording" type="Media" required="true"/>
+        </formData>
+        <component xmlns="http://example.org/form">
+          <componentPath>components/record_voice.jsx</componentPath>
+        </component>
+      </extensionElements>
+    </userTask>
+    
+    <!-- Script Task: Extract File Path -->
+    <scriptTask id="extract_file_path" name="Extract File Path" scriptFormat="python">
+      <documentation>Extracts the file path from the uploaded audio file in the form field variable.</documentation>
+      <incoming>Flow_Record_Extract</incoming>
+      <outgoing>Flow_Extract_Transcribe</outgoing>
+      <script>scripts/extract_file_path.py</script>
+    </scriptTask>
+    
+    <!-- Service Task: Transcribe Audio -->
+    <serviceTask id="transcribe_audio" name="Transcribe Audio with Whisper">
+      <documentation>Calls the Whisper module to transcribe the uploaded video file. Uses the transcribe_uploaded_audio function with file_path parameter to return transcribed text stored in transcription_result variable.</documentation>
+      <incoming>Flow_Extract_Transcribe</incoming>
+      <outgoing>Flow_Transcribe_Intent</outgoing>
+      <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>Whisper</moduleName>
+            <functionName>transcribe_uploaded_audio_standalone</functionName>
+            <parameters>
+              <parameter name="file_path" value="file_path"/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="transcription_result" />
+      </extensionElements>
+    </serviceTask>
+    
+    <!-- Script Task: Create Intent Validation Prompt -->
+    <scriptTask id="create_intent_prompt" name="Create Intent Validation Prompt" scriptFormat="python">
+      <documentation>Creates a prompt to validate the response and understand the intent of the speaker.</documentation>
+      <incoming>Flow_Transcribe_Intent</incoming>
+      <outgoing>Flow_Intent_Agent</outgoing>
+      <script>scripts/create_intent_prompt.py</script>
+    </scriptTask>
+    
+    <!-- Service Task: Execute Agent -->
+        <!-- Service Task: Execute Agent -->
+    <serviceTask id="execute_agent" name="Execute Test Agent">
+      <documentation>Calls the Agent Call module to execute the Test agent with the intent validation prompt.</documentation>
+      <incoming>Flow_Intent_Agent</incoming>
+      <outgoing>Flow_Agent_Process</outgoing>
+      <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>Agent Call</moduleName>
+            <functionName>execute_agent</functionName>
+            <parameters>
+              <parameter name="prompt" value="some_prompt"/>
+              <parameter name="agent_name" value="Test"/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="agent_result" />
+      </extensionElements>
+    </serviceTask>
+    
+    <!-- Script Task: Process Recording -->
+    <scriptTask id="process_recording" name="Process Transcribed Results" scriptFormat="python">
+      <documentation>Processes the transcribed text results and prepares final output with metadata.</documentation>
+      <incoming>Flow_Agent_Process</incoming>
+      <outgoing>Flow_Process_End</outgoing>
+      <script>scripts/process_recording.py</script>
+    </scriptTask>
+    
+    <!-- End Event -->
+    <endEvent id="EndEvent_Success" name="Transcription Complete">
+      <documentation>Video recording successfully transcribed and processed. The video file has been processed, intent validated, and agent executed.</documentation>
+      <incoming>Flow_Process_End</incoming>
+    </endEvent>
+    
+    <!-- Sequence Flows -->
+    <sequenceFlow id="Flow_Start_Mobile" sourceRef="StartEvent_1" targetRef="collect_mobile_number"/>
+    <sequenceFlow id="Flow_Mobile_Record" sourceRef="collect_mobile_number" targetRef="record_video"/>
+    <sequenceFlow id="Flow_Record_Extract" sourceRef="record_video" targetRef="extract_file_path"/>
+    <sequenceFlow id="Flow_Extract_Transcribe" sourceRef="extract_file_path" targetRef="transcribe_audio"/>
+    <sequenceFlow id="Flow_Transcribe_Intent" sourceRef="transcribe_audio" targetRef="create_intent_prompt"/>
+    <sequenceFlow id="Flow_Intent_Agent" sourceRef="create_intent_prompt" targetRef="execute_agent"/>
+    <sequenceFlow id="Flow_Agent_Process" sourceRef="execute_agent" targetRef="process_recording"/>
+    <sequenceFlow id="Flow_Process_End" sourceRef="process_recording" targetRef="EndEvent_Success"/>
+    
+  </process>
+  
+  <!-- BPMN Diagram (Visual Layout) -->
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="VoiceRecordingProcess">
+      
+      <!-- Start Event -->
+      <bpmndi:BPMNShape id="Shape_StartEvent_1" bpmnElement="StartEvent_1">
+        <dc:Bounds x="82" y="192" width="36" height="36"/>
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="68" y="235" width="64" height="27"/>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- User Task: Collect Mobile Number -->
+      <bpmndi:BPMNShape id="Shape_UserTask_CollectMobile" bpmnElement="collect_mobile_number">
+        <dc:Bounds x="180" y="170" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      
+      <!-- User Task: Record Video -->
+      <bpmndi:BPMNShape id="Shape_UserTask_RecordVideo" bpmnElement="record_video">
+        <dc:Bounds x="330" y="170" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      
+      <!-- Script Task: Extract File Path -->
+      <bpmndi:BPMNShape id="Shape_Script_ExtractFilePath" bpmnElement="extract_file_path">
+        <dc:Bounds x="480" y="170" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      
+      <!-- Service Task: Transcribe Audio -->
+      <bpmndi:BPMNShape id="Shape_Service_TranscribeAudio" bpmnElement="transcribe_audio">
+        <dc:Bounds x="630" y="170" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      
+      <!-- Script Task: Create Intent Prompt -->
+      <bpmndi:BPMNShape id="Shape_Script_CreateIntentPrompt" bpmnElement="create_intent_prompt">
+        <dc:Bounds x="780" y="170" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      
+      <!-- Service Task: Execute Agent -->
+      <bpmndi:BPMNShape id="Shape_Service_ExecuteAgent" bpmnElement="execute_agent">
+        <dc:Bounds x="930" y="170" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      
+      <!-- Script Task: Process Recording -->
+      <bpmndi:BPMNShape id="Shape_Script_ProcessRecording" bpmnElement="process_recording">
+        <dc:Bounds x="1080" y="170" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      
+      <!-- End Event -->
+      <bpmndi:BPMNShape id="Shape_EndEvent_Success" bpmnElement="EndEvent_Success">
+        <dc:Bounds x="1242" y="192" width="36" height="36"/>
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1219" y="235" width="82" height="27"/>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Edges -->
+      <bpmndi:BPMNEdge id="Edge_Flow_Start_Mobile" bpmnElement="Flow_Start_Mobile">
+        <di:waypoint x="118" y="210"/>
+        <di:waypoint x="180" y="210"/>
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Edge_Flow_Mobile_Record" bpmnElement="Flow_Mobile_Record">
+        <di:waypoint x="280" y="210"/>
+        <di:waypoint x="330" y="210"/>
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Edge_Flow_Record_Extract" bpmnElement="Flow_Record_Extract">
+        <di:waypoint x="430" y="210"/>
+        <di:waypoint x="480" y="210"/>
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Edge_Flow_Extract_Transcribe" bpmnElement="Flow_Extract_Transcribe">
+        <di:waypoint x="580" y="210"/>
+        <di:waypoint x="630" y="210"/>
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Edge_Flow_Transcribe_Intent" bpmnElement="Flow_Transcribe_Intent">
+        <di:waypoint x="730" y="210"/>
+        <di:waypoint x="780" y="210"/>
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Edge_Flow_Intent_Agent" bpmnElement="Flow_Intent_Agent">
+        <di:waypoint x="880" y="210"/>
+        <di:waypoint x="930" y="210"/>
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Edge_Flow_Agent_Process" bpmnElement="Flow_Agent_Process">
+        <di:waypoint x="1030" y="210"/>
+        <di:waypoint x="1080" y="210"/>
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Edge_Flow_Process_End" bpmnElement="Flow_Process_End">
+        <di:waypoint x="1180" y="210"/>
+        <di:waypoint x="1242" y="210"/>
+      </bpmndi:BPMNEdge>
+      
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  
+</definitions>

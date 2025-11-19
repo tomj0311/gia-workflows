@@ -1,0 +1,345 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+  id="Definitions_RemotePatientAssistant"
+  targetNamespace="http://example.com/bpmn"
+  xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL http://www.omg.org/spec/BPMN/2.0/20100501/BPMN20.xsd">
+  
+  <process id="RemotePatientAssistantProcess" name="Remote Patient Assistant Workflow" isExecutable="true">
+    <!-- Start Event -->
+    <startEvent id="StartEvent_1" name="Start Remote Patient Session">
+      <documentation>Initiates the remote patient assistant workflow. User provides mobile number and records video.</documentation>
+      <outgoing>Flow_Start_Mobile</outgoing>
+    </startEvent>
+
+    <!-- User Task: Collect Mobile Number -->
+    <userTask id="collect_mobile_number" name="Collect Mobile Number">
+      <documentation>User interface for collecting mobile number before video recording.</documentation>
+      <incoming>Flow_Start_Mobile</incoming>
+      <outgoing>Flow_Mobile_Record</outgoing>
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="mobile_number" label="Mobile Number" type="String" required="true"/>
+        </formData>
+      </extensionElements>
+    </userTask>
+
+    <!-- User Task: Record Video -->
+    <userTask id="record_video" name="Record Video Message">
+      <documentation>User interface for recording video messages. Provides description field and recording controls (record, stop, save). Video is captured and stored in the browser using MediaRecorder API. On save, the video file is submitted as FormData along with the description.</documentation>
+      <incoming>Flow_Mobile_Record</incoming>
+      <outgoing>Flow_Record_Extract</outgoing>
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="description" label="Description" type="String" required="true"/>
+          <formField id="media_data" label="Video Recording" type="Media" required="true"/>
+        </formData>
+        <component xmlns="http://example.org/form">
+          <componentPath>components/record_voice.jsx</componentPath>
+        </component>
+      </extensionElements>
+    </userTask>
+
+    <!-- Script Task: Extract File Path -->
+    <scriptTask id="extract_file_path" name="Extract File Path" scriptFormat="python">
+      <documentation>Extracts the file path from the uploaded video file in the form field variable.</documentation>
+      <incoming>Flow_Record_Extract</incoming>
+      <outgoing>Flow_Extract_Transcribe</outgoing>
+      <script>scripts/extract_file_path.py</script>
+    </scriptTask>
+
+    <!-- Service Task: Transcribe Audio -->
+    <serviceTask id="transcribe_audio" name="Transcribe Audio with Whisper">
+      <documentation>Calls the Whisper module to transcribe the uploaded video file. Uses the transcribe_uploaded_audio function with file_path parameter to return transcribed text stored in transcription_result variable.</documentation>
+      <incoming>Flow_Extract_Transcribe</incoming>
+      <outgoing>Flow_Transcribe_Analysis</outgoing>
+      <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>Whisper</moduleName>
+            <functionName>transcribe_uploaded_audio_standalone</functionName>
+            <parameters>
+              <parameter name="file_path" value="file_path"/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="transcription_result" />
+      </extensionElements>
+    </serviceTask>
+
+    <!-- Script Task: Create Analysis Prompt (Suggest Specialist) -->
+    <scriptTask id="create_analysis_prompt" name="Create Analysis Prompt" scriptFormat="python">
+      <documentation>Creates a prompt for the analysis agent to analyze the transcription and suggest a relevant hospital specialist (Dr. Priya General Physician, Endocrinologist Dr. Philip, Dermatologist Dr. Eleena, Eye Specialist Dr. Hima, ENT Dr. Eliyaz).</documentation>
+      <incoming>Flow_Transcribe_Analysis</incoming>
+      <outgoing>Flow_Analysis_Agent</outgoing>
+      <script>scripts/create_analysis_prompt.py</script>
+    </scriptTask>
+
+    <!-- Service Task: Analyze with Agent (Suggest Specialist) -->
+    <serviceTask id="analyze_agent" name="Analyze and Suggest Specialist">
+      <documentation>Calls the Agent Call module to analyze the transcription and suggest the most relevant hospital specialist.</documentation>
+      <incoming>Flow_Analysis_Agent</incoming>
+      <outgoing>Flow_Analysis_Route</outgoing>
+      <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>Agent Call</moduleName>
+            <functionName>execute_agent</functionName>
+            <parameters>
+              <parameter name="prompt" value="analysis_prompt"/>
+              <parameter name="agent_name" value="SpecialistAnalysis"/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="analysis_result" />
+      </extensionElements>
+    </serviceTask>
+
+    <!-- Script Task: Extract Specialist Name -->
+    <scriptTask id="extract_specialist" name="Extract Specialist Name" scriptFormat="python">
+      <documentation>Extracts the identified specialist's name from the analysis result for routing.</documentation>
+      <incoming>Flow_Analysis_Route</incoming>
+      <outgoing>Flow_Specialist_Route</outgoing>
+      <script>scripts/extract_specialist.py</script>
+    </scriptTask>
+
+    <!-- Exclusive Gateway: Route to Specialist -->
+    <exclusiveGateway id="route_specialist" name="Route to Specialist"/>
+
+    <!-- User Task: General Physician -->
+    <userTask id="doctor_priya" name="Dr. Priya (General Physician)">
+      <documentation>Route to Dr. Priya for General Physician consultation.</documentation>
+      <incoming>Flow_Specialist_Priya</incoming>
+      <outgoing>Flow_Doctor_End</outgoing>
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="doctor_notes" label="Doctor's Notes" type="String" required="false"/>
+        </formData>
+      </extensionElements>
+    </userTask>
+
+    <!-- User Task: Endocrinologist -->
+    <userTask id="doctor_philip" name="Dr. Philip (Endocrinologist)">
+      <documentation>Route to Dr. Philip for Endocrinology consultation.</documentation>
+      <incoming>Flow_Specialist_Philip</incoming>
+      <outgoing>Flow_Doctor_End</outgoing>
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="doctor_notes" label="Doctor's Notes" type="String" required="false"/>
+        </formData>
+      </extensionElements>
+    </userTask>
+
+    <!-- User Task: Dermatologist -->
+    <userTask id="doctor_eleena" name="Dr. Eleena (Dermatologist)">
+      <documentation>Route to Dr. Eleena for Dermatology consultation.</documentation>
+      <incoming>Flow_Specialist_Eleena</incoming>
+      <outgoing>Flow_Doctor_End</outgoing>
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="doctor_notes" label="Doctor's Notes" type="String" required="false"/>
+        </formData>
+      </extensionElements>
+    </userTask>
+
+    <!-- User Task: Eye Specialist -->
+    <userTask id="doctor_hima" name="Dr. Hima (Eye Specialist)">
+      <documentation>Route to Dr. Hima for Eye consultation.</documentation>
+      <incoming>Flow_Specialist_Hima</incoming>
+      <outgoing>Flow_Doctor_End</outgoing>
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="doctor_notes" label="Doctor's Notes" type="String" required="false"/>
+        </formData>
+      </extensionElements>
+    </userTask>
+
+    <!-- User Task: ENT Specialist -->
+    <userTask id="doctor_eliyaz" name="Dr. Eliyaz (ENT Specialist)">
+      <documentation>Route to Dr. Eliyaz for ENT consultation.</documentation>
+      <incoming>Flow_Specialist_Eliyaz</incoming>
+      <outgoing>Flow_Doctor_End</outgoing>
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="doctor_notes" label="Doctor's Notes" type="String" required="false"/>
+        </formData>
+      </extensionElements>
+    </userTask>
+
+    <!-- End Event -->
+    <endEvent id="EndEvent_Success" name="Consultation Complete">
+      <documentation>Patient video successfully analyzed, specialist identified, and routed to the doctor for consultation.</documentation>
+      <incoming>Flow_Doctor_End</incoming>
+    </endEvent>
+
+    <!-- Sequence Flows -->
+    <sequenceFlow id="Flow_Start_Mobile" sourceRef="StartEvent_1" targetRef="collect_mobile_number"/>
+    <sequenceFlow id="Flow_Mobile_Record" sourceRef="collect_mobile_number" targetRef="record_video"/>
+    <sequenceFlow id="Flow_Record_Extract" sourceRef="record_video" targetRef="extract_file_path"/>
+    <sequenceFlow id="Flow_Extract_Transcribe" sourceRef="extract_file_path" targetRef="transcribe_audio"/>
+    <sequenceFlow id="Flow_Transcribe_Analysis" sourceRef="transcribe_audio" targetRef="create_analysis_prompt"/>
+    <sequenceFlow id="Flow_Analysis_Agent" sourceRef="create_analysis_prompt" targetRef="analyze_agent"/>
+    <sequenceFlow id="Flow_Analysis_Route" sourceRef="analyze_agent" targetRef="extract_specialist"/>
+    <sequenceFlow id="Flow_Specialist_Route" sourceRef="extract_specialist" targetRef="route_specialist"/>
+    <sequenceFlow id="Flow_Specialist_Priya" sourceRef="route_specialist" targetRef="doctor_priya">
+      <conditionExpression xsi:type="tFormalExpression">specialist_name == "Dr. Priya"</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="Flow_Specialist_Philip" sourceRef="route_specialist" targetRef="doctor_philip">
+      <conditionExpression xsi:type="tFormalExpression">specialist_name == "Dr. Philip"</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="Flow_Specialist_Eleena" sourceRef="route_specialist" targetRef="doctor_eleena">
+      <conditionExpression xsi:type="tFormalExpression">specialist_name == "Dr. Eleena"</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="Flow_Specialist_Hima" sourceRef="route_specialist" targetRef="doctor_hima">
+      <conditionExpression xsi:type="tFormalExpression">specialist_name == "Dr. Hima"</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="Flow_Specialist_Eliyaz" sourceRef="route_specialist" targetRef="doctor_eliyaz">
+      <conditionExpression xsi:type="tFormalExpression">specialist_name == "Dr. Eliyaz"</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="Flow_Doctor_End" sourceRef="doctor_priya" targetRef="EndEvent_Success"/>
+    <sequenceFlow id="Flow_Doctor_End2" sourceRef="doctor_philip" targetRef="EndEvent_Success"/>
+    <sequenceFlow id="Flow_Doctor_End3" sourceRef="doctor_eleena" targetRef="EndEvent_Success"/>
+    <sequenceFlow id="Flow_Doctor_End4" sourceRef="doctor_hima" targetRef="EndEvent_Success"/>
+    <sequenceFlow id="Flow_Doctor_End5" sourceRef="doctor_eliyaz" targetRef="EndEvent_Success"/>
+  </process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="RemotePatientAssistantProcess">
+      <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_1">
+        <dc:Bounds x="100" y="122" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="UserTask_1_di" bpmnElement="collect_mobile_number">
+        <dc:Bounds x="250" y="100" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="UserTask_2_di" bpmnElement="record_video">
+        <dc:Bounds x="400" y="100" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ScriptTask_1_di" bpmnElement="extract_file_path">
+        <dc:Bounds x="550" y="100" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ServiceTask_1_di" bpmnElement="transcribe_audio">
+        <dc:Bounds x="700" y="100" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ScriptTask_2_di" bpmnElement="create_analysis_prompt">
+        <dc:Bounds x="850" y="220" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ServiceTask_2_di" bpmnElement="analyze_agent">
+        <dc:Bounds x="1000" y="340" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ScriptTask_3_di" bpmnElement="extract_specialist">
+        <dc:Bounds x="1150" y="340" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ExclusiveGateway_1_di" bpmnElement="route_specialist" isMarkerVisible="true">
+        <dc:Bounds x="1300" y="355" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="UserTask_3_di" bpmnElement="doctor_priya">
+        <dc:Bounds x="1450" y="100" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="UserTask_4_di" bpmnElement="doctor_philip">
+        <dc:Bounds x="1450" y="220" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="UserTask_5_di" bpmnElement="doctor_eleena">
+        <dc:Bounds x="1450" y="340" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="UserTask_6_di" bpmnElement="doctor_hima">
+        <dc:Bounds x="1450" y="460" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="UserTask_7_di" bpmnElement="doctor_eliyaz">
+        <dc:Bounds x="1450" y="580" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_1_di" bpmnElement="EndEvent_Success">
+        <dc:Bounds x="1650" y="362" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Start_Mobile_di" bpmnElement="Flow_Start_Mobile">
+        <di:waypoint x="136" y="140" />
+        <di:waypoint x="250" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Mobile_Record_di" bpmnElement="Flow_Mobile_Record">
+        <di:waypoint x="350" y="140" />
+        <di:waypoint x="400" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Record_Extract_di" bpmnElement="Flow_Record_Extract">
+        <di:waypoint x="500" y="140" />
+        <di:waypoint x="550" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Extract_Transcribe_di" bpmnElement="Flow_Extract_Transcribe">
+        <di:waypoint x="650" y="140" />
+        <di:waypoint x="700" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Transcribe_Analysis_di" bpmnElement="Flow_Transcribe_Analysis">
+        <di:waypoint x="800" y="140" />
+        <di:waypoint x="825" y="140" />
+        <di:waypoint x="825" y="260" />
+        <di:waypoint x="850" y="260" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Analysis_Agent_di" bpmnElement="Flow_Analysis_Agent">
+        <di:waypoint x="950" y="260" />
+        <di:waypoint x="975" y="260" />
+        <di:waypoint x="975" y="380" />
+        <di:waypoint x="1000" y="380" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Analysis_Route_di" bpmnElement="Flow_Analysis_Route">
+        <di:waypoint x="1100" y="380" />
+        <di:waypoint x="1150" y="380" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Specialist_Route_di" bpmnElement="Flow_Specialist_Route">
+        <di:waypoint x="1250" y="380" />
+        <di:waypoint x="1300" y="380" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Specialist_Priya_di" bpmnElement="Flow_Specialist_Priya">
+        <di:waypoint x="1325" y="355" />
+        <di:waypoint x="1325" y="140" />
+        <di:waypoint x="1450" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Specialist_Philip_di" bpmnElement="Flow_Specialist_Philip">
+        <di:waypoint x="1325" y="355" />
+        <di:waypoint x="1325" y="260" />
+        <di:waypoint x="1450" y="260" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Specialist_Eleena_di" bpmnElement="Flow_Specialist_Eleena">
+        <di:waypoint x="1350" y="380" />
+        <di:waypoint x="1450" y="380" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Specialist_Hima_di" bpmnElement="Flow_Specialist_Hima">
+        <di:waypoint x="1325" y="405" />
+        <di:waypoint x="1325" y="500" />
+        <di:waypoint x="1450" y="500" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Specialist_Eliyaz_di" bpmnElement="Flow_Specialist_Eliyaz">
+        <di:waypoint x="1325" y="405" />
+        <di:waypoint x="1325" y="620" />
+        <di:waypoint x="1450" y="620" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Doctor_End_di" bpmnElement="Flow_Doctor_End">
+        <di:waypoint x="1550" y="140" />
+        <di:waypoint x="1600" y="140" />
+        <di:waypoint x="1600" y="380" />
+        <di:waypoint x="1650" y="380" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Doctor_End2_di" bpmnElement="Flow_Doctor_End2">
+        <di:waypoint x="1550" y="260" />
+        <di:waypoint x="1600" y="260" />
+        <di:waypoint x="1600" y="380" />
+        <di:waypoint x="1650" y="380" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Doctor_End3_di" bpmnElement="Flow_Doctor_End3">
+        <di:waypoint x="1550" y="380" />
+        <di:waypoint x="1650" y="380" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Doctor_End4_di" bpmnElement="Flow_Doctor_End4">
+        <di:waypoint x="1550" y="500" />
+        <di:waypoint x="1600" y="500" />
+        <di:waypoint x="1600" y="380" />
+        <di:waypoint x="1650" y="380" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Doctor_End5_di" bpmnElement="Flow_Doctor_End5">
+        <di:waypoint x="1550" y="620" />
+        <di:waypoint x="1600" y="620" />
+        <di:waypoint x="1600" y="380" />
+        <di:waypoint x="1650" y="380" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
