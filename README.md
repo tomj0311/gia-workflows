@@ -13,6 +13,7 @@
 - **Messages**: Define `<message>` elements, link with `messageRef` in send/receive tasks
 - **IDs**: `[a-zA-Z0-9_]` only (underscores for multi-word: `enter_data`)
 - **Variable Visibility**: Variables in main block are GLOBAL and VISIBLE in UI. Use functions for internal logic.
+- **Private Variables**: Variables starting with `_` (e.g., `_temp`) are HIDDEN from the UI.
 - **React**: No imports, no exports, use `submitWorkflowForm(data)`
 
 ## Core Principles
