@@ -12,7 +12,7 @@
 - **Call Activity**: Use `calledElement` + `dataInput`/`dataOutput` for variable mapping
 - **Messages**: Define `<message>` elements, link with `messageRef` in send/receive tasks
 - **IDs**: `[a-zA-Z0-9_]` only (underscores for multi-word: `enter_data`)
-- **Logging**: `_debug*`, `_info*`, `_warning*`, `_error*` prefixes
+- **Variable Visibility**: Variables in main block are GLOBAL and VISIBLE in UI. Use functions for internal logic.
 - **React**: No imports, no exports, use `submitWorkflowForm(data)`
 
 ## Core Principles
@@ -38,25 +38,26 @@
 """Description | Inputs: email, amount | Outputs: email_valid, amount_valid"""
 import re
 
-def is_valid_email(email):
-    return bool(re.match(r"[^@]+@[^@]+\.[^@]+", email)) if email else False
+# Define helper functions for internal logic
+# Variables inside functions are NOT added to global context or UI
+def check_email(email_str):
+    is_valid = bool(re.match(r"[^@]+@[^@]+\.[^@]+", email_str)) if email_str else False
+    return is_valid
 
-# Direct variable access (no prefixes)
-email_valid = is_valid_email(email)
+# Main block: Variables defined here are GLOBAL and VISIBLE in UI
+# Only define variables that are needed by subsequent tasks or for UI display
+email_valid = check_email(email)
 amount_valid = float(amount) > 0 if amount else False
 
-# Logging (optional ONLY if necessary)
-_debug_input = f"email={email}, amount={amount}"
-_info_result = f"Valid: email={email_valid}, amount={amount_valid}"
-_warning_email = "Invalid email" if not email_valid else None
-_error_critical = "Both invalid" if not (email_valid or amount_valid) else None
+# Error handling: Define 'error' variable to signal failure in UI
+if not (email_valid or amount_valid):
+    error = "Validation failed: Invalid email or amount"
 ```
 
-**Logging Prefixes**:
-- `_debug_*`: Diagnostic info (inputs, config, performance)
-- `_info_*`: Status messages (progress, summaries)
-- `_warning_*`: Non-critical issues (low confidence, rate limits)
-- `_error_*`: Critical errors (API failures, validation errors)
+**Variable Scoping Rules**:
+- **Main Block**: All variables defined in the top-level scope are added to the global workflow context and displayed in the UI.
+- **Functions**: Variables defined inside functions are local and NOT added to the global context. Use functions to encapsulate temporary logic and keep the global context clean.
+- **Internal Variables**: Variables starting with `_` (e.g., `_temp`) are hidden from the UI but available in the workflow context.
 
 ---
 
@@ -588,7 +589,7 @@ Row 1 (Y=100): [Start] → [Task1] → [Task2] → [Gateway] → [Task3] → [En
 - [ ] File name = task ID exactly (`id="validate"` → `scripts/validate.py`)
 - [ ] Docstring with inputs/outputs
 - [ ] Direct variable access (no prefixes)
-- [ ] Logging variables (`_debug*`, `_info*`, `_warning*`, `_error*`)
+- [ ] Clean global scope (use functions for internal logic)
 - [ ] Valid Python syntax
 
 **User Tasks**:
