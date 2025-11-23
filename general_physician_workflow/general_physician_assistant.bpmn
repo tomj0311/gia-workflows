@@ -86,11 +86,11 @@
       <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
         <serviceConfiguration xmlns="http://example.org/service">
           <function>
-            <moduleName>Workflow Agent</moduleName>
+            <moduleName>Agent Call</moduleName>
             <functionName>execute_agent</functionName>
             <parameters>
               <parameter name="prompt" value="analysis_prompt"/>
-              <parameter name="agent_name" value="SpecialistAnalysis"/>
+              <parameter name="agent_name" value="Workflow Agent"/>
             </parameters>
           </function>
         </serviceConfiguration>

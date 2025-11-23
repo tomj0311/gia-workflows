@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+  id="Definitions_PdfOcrWorkflow"
+  targetNamespace="http://example.com/bpmn"
+  xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL http://www.omg.org/spec/BPMN/2.0/20100501/BPMN20.xsd">
+  
+  <process id="PdfOcrWorkflow" name="PDF OCR Workflow" isExecutable="true">
+    <!-- Start Event -->
+    <startEvent id="StartEvent_1" name="Start PDF OCR">
+      <outgoing>Flow_Start_Upload</outgoing>
+    </startEvent>
+
+    <!-- User Task: Upload PDF -->
+    <userTask id="upload_pdf" name="Upload PDF">
+      <documentation>User uploads a PDF file for OCR processing.</documentation>
+      <incoming>Flow_Start_Upload</incoming>
+      <outgoing>Flow_Upload_Convert</outgoing>
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="pdf_file" label="Upload PDF" type="Files" required="true"/>
+        </formData>
+      </extensionElements>
+    </userTask>
+
+    <!-- Script Task: Convert PDF to Images -->
+    <scriptTask id="convert_pdf_to_images" name="Convert PDF to Images" scriptFormat="python">
+      <documentation>Converts the uploaded PDF into images for each page.</documentation>
+      <incoming>Flow_Upload_Convert</incoming>
+      <outgoing>Flow_Convert_Process</outgoing>
+      <script>scripts/convert_pdf_to_images.py</script>
+    </scriptTask>
+
+    <!-- Script Task: Process Images with Agent -->
+    <scriptTask id="process_images_with_agent" name="Process Images with Agent" scriptFormat="python">
+      <documentation>Processes each image using an AI agent to extract text (OCR).</documentation>
+      <incoming>Flow_Convert_Process</incoming>
+      <outgoing>Flow_Process_Config</outgoing>
+      <script>scripts/process_images_with_agent.py</script>
+    </scriptTask>
+
+    <!-- Script Task: Create Knowledge Config -->
+    <scriptTask id="create_knowledge_config" name="Create Knowledge Config" scriptFormat="python">
+      <documentation>Aggregates OCR results and creates a knowledge configuration.</documentation>
+      <incoming>Flow_Process_Config</incoming>
+      <outgoing>Flow_Config_End</outgoing>
+      <script>scripts/create_knowledge_config.py</script>
+    </scriptTask>
+
+    <!-- End Event -->
+    <endEvent id="EndEvent_Success" name="OCR Complete">
+      <incoming>Flow_Config_End</incoming>
+    </endEvent>
+
+    <!-- Sequence Flows -->
+    <sequenceFlow id="Flow_Start_Upload" sourceRef="StartEvent_1" targetRef="upload_pdf"/>
+    <sequenceFlow id="Flow_Upload_Convert" sourceRef="upload_pdf" targetRef="convert_pdf_to_images"/>
+    <sequenceFlow id="Flow_Convert_Process" sourceRef="convert_pdf_to_images" targetRef="process_images_with_agent"/>
+    <sequenceFlow id="Flow_Process_Config" sourceRef="process_images_with_agent" targetRef="create_knowledge_config"/>
+    <sequenceFlow id="Flow_Config_End" sourceRef="create_knowledge_config" targetRef="EndEvent_Success"/>
+  </process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="PdfOcrWorkflow">
+      <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_1">
+        <dc:Bounds x="100" y="100" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="UserTask_1_di" bpmnElement="upload_pdf">
+        <dc:Bounds x="250" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ScriptTask_1_di" bpmnElement="convert_pdf_to_images">
+        <dc:Bounds x="400" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ScriptTask_2_di" bpmnElement="process_images_with_agent">
+        <dc:Bounds x="550" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ScriptTask_3_di" bpmnElement="create_knowledge_config">
+        <dc:Bounds x="700" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_1_di" bpmnElement="EndEvent_Success">
+        <dc:Bounds x="850" y="100" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Start_Upload_di" bpmnElement="Flow_Start_Upload">
+        <di:waypoint x="136" y="118" />
+        <di:waypoint x="250" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Upload_Convert_di" bpmnElement="Flow_Upload_Convert">
+        <di:waypoint x="350" y="120" />
+        <di:waypoint x="400" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Convert_Process_di" bpmnElement="Flow_Convert_Process">
+        <di:waypoint x="500" y="120" />
+        <di:waypoint x="550" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Process_Config_di" bpmnElement="Flow_Process_Config">
+        <di:waypoint x="650" y="120" />
+        <di:waypoint x="700" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Config_End_di" bpmnElement="Flow_Config_End">
+        <di:waypoint x="800" y="120" />
+        <di:waypoint x="850" y="118" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
