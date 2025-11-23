@@ -111,19 +111,20 @@ def process_images(images, auth_token_val):
     import requests
     import io
     import os
+    import json
 
     results = []
     
     # Get API host from environment variable
     api_host = os.environ.get("CLIENT_URL", "http://localhost:4000")
-    url = f"{api_host.rstrip('/')}/api/agent-runtime/run"
+    url = f"{api_host.rstrip('/')}/api/agent-runtime/run_response"
     
     headers = {"Authorization": f"Bearer {auth_token_val}"}
 
     for i, image_bytes in enumerate(images):
         data = {
-            "agent_name": "OCR Agent", 
-            "prompt": "Perform OCR on the attached image. Return the text in markdown format, prserve tabular formats if any."
+            "agent_name": "Image to Markdown", 
+            "prompt": "Perform OCR on the attached image. Return only the result text in markdown format without any comments. Preserve tabular formats if any."
         }
         
         files = {
@@ -133,7 +134,15 @@ def process_images(images, auth_token_val):
         try:
             response = requests.post(url, headers=headers, data=data, files=files, stream=False)
             response.raise_for_status()
-            results.append(response.text)
+            
+            try:
+                json_data = response.json()
+                markdown_text = json_data.get("content", "")
+            except Exception as e:
+                print(f"Error parsing JSON response: {e}")
+                markdown_text = ""
+            
+            results.append(markdown_text)
         except Exception as e:
             print(f"Error processing page {i+1}: {e}")
             results.append(f"Error processing page {i+1}: {str(e)}")
@@ -149,13 +158,12 @@ if __name__ == "__main__":
         "type": "access",
         "exp": 1763896151,
         "iat": 1763867351,
-        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Ik02T1hWM3o3RFRzTHp6djduYUpYUlEiLCJyb2xlIjoidXNlciIsInRlbmFudElkIjoiZGE4OGI2YTEtNTI4OC00NTI3LWFmNmItNjc5YzMxMWFlY2UzIiwiZW1haWwiOiJ0b21qMDMxMUBnbWFpbC5jb20iLCJ0eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzYzOTI0OTkyLCJpYXQiOjE3NjM4OTYxOTJ9.61K-gXmdw9sNBfaxqL7do1QLPSjyWIdMceGNsqrmIN0"
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Ik02T1hWM3o3RFRzTHp6djduYUpYUlEiLCJyb2xlIjoidXNlciIsInRlbmFudElkIjoiZGE4OGI2YTEtNTI4OC00NTI3LWFmNmItNjc5YzMxMWFlY2UzIiwiZW1haWwiOiJ0b21qMDMxMUBnbWFpbC5jb20iLCJ0eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzYzOTYyNDkzLCJpYXQiOjE3NjM5MzM2OTN9.zJXEyMKa2Qeb1WMH177XeOZhCQ79HKwYXymwV1HT9e4"
     }
 
     pdf_file = {
-        "filename": "DPR (1).pdf",
-        "file_path": "uploads/M6OXV3z7DTsLzzv7naJXRQ/69228bcae13dc93a369a752f/8437b2/DPR (1).pdf",
-        "file_size": 13938975,
+        "filename": "MyStatement.pdf",
+        "file_path": "uploads/M6OXV3z7DTsLzzv7naJXRQ/69228bcae13dc93a369a752f/40e565/MyStatement.pdf",
         "content_type": "application/pdf"
     }
 
