@@ -1,4 +1,3 @@
-"""Converts uploaded PDF to images. | Inputs: pdf_file | Outputs: images_data, pdf_name"""
 """Converts uploaded PDF to images. | Inputs: pdf_file, token | Outputs: images_data, pdf_name"""
 
 def convert_pdf(pdf_input, auth_token):
@@ -36,31 +35,25 @@ def convert_pdf(pdf_input, auth_token):
         
         encoded_path = '/'.join(urllib.parse.quote(segment, safe='') for segment in file_path.split('/'))
         url = f"{api_host.rstrip('/')}/api/download/{encoded_path}"
-        
-        try:
-            response = requests.get(url, headers=headers, stream=True)
-            response.raise_for_status()
-            
-            # Load PDF from bytes
-            pdf = pdfium.PdfDocument(response.content)
-            for i in range(len(pdf)):
-                page = pdf[i]
-                # scale=1 is ~72 DPI, scale=4.17 ≈ 300 DPI
-                bitmap = page.render(
-                    scale=2,  # Higher resolution
-                    rotation=0,
-                )
-                pil_image = bitmap.to_pil()
-                img_byte_arr = io.BytesIO()
-                # Save with maximum quality and no compression
-                pil_image.save(img_byte_arr, format='PNG', optimize=False, compress_level=0)
-                images_data.append(img_byte_arr.getvalue())
-                
-        except Exception as e:
-            print(f"Error processing PDF: {e}")
+        response = requests.get(url, headers=headers, stream=True)
+        response.raise_for_status()
+
+        # Load PDF from bytes
+        pdf = pdfium.PdfDocument(response.content)
+        for i in range(len(pdf)):
+            page = pdf[i]
+            # scale=1 is ~72 DPI, scale=4.17 ≈ 300 DPI
+            bitmap = page.render(
+                scale=2,  # Higher resolution
+                rotation=0,
+            )
+            pil_image = bitmap.to_pil()
+            img_byte_arr = io.BytesIO()
+            # Save with maximum quality and no compression
+            pil_image.save(img_byte_arr, format='PNG', optimize=False, compress_level=0)
+            images_data.append(img_byte_arr.getvalue())
             
     return images_data, pdf_name
-
 
 def upload_images_to_minio(images_data, pdf_name, pdf_file, auth_token):
     """Upload extracted images to MinIO and return the list of uploaded paths."""
@@ -90,20 +83,16 @@ def upload_images_to_minio(images_data, pdf_name, pdf_file, auth_token):
         files = {
             'files': (img_filename, img_bytes, 'image/png')
         }
-        
-        try:
-            response = requests.post(upload_url, headers=headers, files=files)
-            response.raise_for_status()
-            result = response.json()
-            uploaded_files = result.get('files', [])
-            if uploaded_files:
-                uploaded_path = uploaded_files[0].get('path', '')
-                uploaded_paths.append(uploaded_path)
-                print(f"Uploaded to MinIO: {uploaded_path}")
-            else:
-                print(f"Uploaded {img_filename} successfully")
-        except Exception as e:
-            print(f"Error uploading {img_filename}: {e}")
+        response = requests.post(upload_url, headers=headers, files=files)
+        response.raise_for_status()
+        result = response.json()
+        uploaded_files = result.get('files', [])
+        if uploaded_files:
+            uploaded_path = uploaded_files[0].get('path', '')
+            uploaded_paths.append(uploaded_path)
+            print(f"Uploaded to MinIO: {uploaded_path}")
+        else:
+            print(f"Uploaded {img_filename} successfully")
     
     return uploaded_paths
 
@@ -117,7 +106,7 @@ def process_images(images, auth_token_val):
     
     # Get API host from environment variable
     api_host = os.environ.get("CLIENT_URL", "http://localhost:4000")
-    url = f"{api_host.rstrip('/')}/api/agent-runtime/run_response"
+    url = f"{api_host.rstrip('/')}/api/agent-runtime/run_non_streaming"
     
     headers = {"Authorization": f"Bearer {auth_token_val}"}
 
@@ -130,22 +119,11 @@ def process_images(images, auth_token_val):
         files = {
             'files': (f'page_{i+1}.png', io.BytesIO(image_bytes), 'image/png')
         }
-        
-        try:
-            response = requests.post(url, headers=headers, data=data, files=files, stream=False)
-            response.raise_for_status()
-            
-            try:
-                json_data = response.json()
-                markdown_text = json_data.get("content", "")
-            except Exception as e:
-                print(f"Error parsing JSON response: {e}")
-                markdown_text = ""
-            
-            results.append(markdown_text)
-        except Exception as e:
-            print(f"Error processing page {i+1}: {e}")
-            results.append(f"Error processing page {i+1}: {str(e)}")
+        response = requests.post(url, headers=headers, data=data, files=files, stream=False)
+        response.raise_for_status()
+        json_data = response.json()
+        markdown_text = json_data.get("content", "")
+        results.append(markdown_text)
             
     return results
 
@@ -168,35 +146,15 @@ if __name__ == "__main__":
     }
 
     current_token = user["token"]
-    images_data, pdf_name = convert_pdf(pdf_file, current_token)
-    print(f"PDF Name: {pdf_name}")
-    print(f"Number of images: {len(images_data)}")
+    try:
+        current_token = user["token"]
+        images_data, pdf_name = convert_pdf(pdf_file, current_token)
+        print(f"PDF Name: {pdf_name}")
+        print(f"Number of images: {len(images_data)}")
 
-    ocr_results = process_images(images_data, current_token)
-
-    # ONLY for debugging 
-    # user = {
-    #     "id": "M6OXV3z7DTsLzzv7naJXRQ",
-    #     "role": "user",
-    #     "tenantId": "da88b6a1-5288-4527-af6b-679c311aece3",
-    #     "email": "tomj0311@gmail.com",
-    #     "type": "access",
-    #     "exp": 1763896151,
-    #     "iat": 1763867351,
-    #     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Ik02T1hWM3o3RFRzTHp6djduYUpYUlEiLCJyb2xlIjoidXNlciIsInRlbmFudElkIjoiZGE4OGI2YTEtNTI4OC00NTI3LWFmNmItNjc5YzMxMWFlY2UzIiwiZW1haWwiOiJ0b21qMDMxMUBnbWFpbC5jb20iLCJ0eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzYzODk2MTUxLCJpYXQiOjE3NjM4NjczNTF9.idbLBL9AAsjGVvo25XFYJZYsX4qab2WmXl42S5QQD6w"
-    # }
-    # pdf_file = {
-    #     "filename": "DPR (1).pdf",
-    #     "file_path": "uploads/M6OXV3z7DTsLzzv7naJXRQ/69228bcae13dc93a369a752f/8437b2/DPR (1).pdf",
-    #     "file_size": 13938975,
-    #     "content_type": "application/pdf"
-    # }
-    # current_token = user["token"]
-    # images_data, pdf_name = convert_pdf(pdf_file, current_token)
-    # print(f"PDF Name: {pdf_name}")
-    # print(f"Number of images: {len(images_data)}")
-
-    # # Upload images to MinIO and get the paths
-    # uploaded_paths = upload_images_to_minio(images_data, pdf_name, pdf_file, current_token)
-    # print(f"\nSuccessfully uploaded {len(uploaded_paths)} images to MinIO")
-    # print(f"Uploaded paths: {uploaded_paths}")
+        ocr_results = process_images(images_data, current_token)
+        print(ocr_results)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise
