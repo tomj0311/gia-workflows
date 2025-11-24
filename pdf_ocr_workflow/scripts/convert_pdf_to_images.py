@@ -100,7 +100,6 @@ def process_images(images, auth_token_val):
     import requests
     import io
     import os
-    import json
 
     results = []
     
