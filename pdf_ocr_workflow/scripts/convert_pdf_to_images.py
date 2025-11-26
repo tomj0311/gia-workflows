@@ -126,6 +126,48 @@ def process_images(images, auth_token_val):
             
     return results
 
+def create_single_file(results, pdf_name):
+    import os
+    """Combines OCR results into a single markdown file."""
+    combined_text = "\n\n".join(results)
+    file_bytes = combined_text.encode('utf-8')
+    filename = f"{os.path.splitext(pdf_name)[0]}.md"
+    return file_bytes, filename
+
+def create_knowledge_collection(file_bytes, filename, collection_name, auth_token):
+    import requests
+    import json
+    import io
+    import os
+    """Creates a knowledge collection via the API."""
+    
+    api_host = os.environ.get("CLIENT_URL", "http://localhost:4000")
+    url = f"{api_host.rstrip('/')}/api/knowledge/update"
+    
+    headers = {"Authorization": f"Bearer {auth_token}"}
+    params = {"collection": collection_name}
+    
+    payload = {
+        "name": collection_name,
+        "category": "ocr-results",
+        "model_name": "MiniLML6",
+        "type": "knowledgeConfig",
+        "overwrite": False
+    }
+    
+    files = {
+        'files': (filename, io.BytesIO(file_bytes), 'text/markdown'),
+        'payload': (None, json.dumps(payload))
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, params=params, files=files)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"Error creating knowledge collection: {e}")
+        return {"error": str(e)}
+
 if __name__ == "__main__":
     user = {
         "id": "M6OXV3z7DTsLzzv7naJXRQ",
@@ -153,6 +195,14 @@ if __name__ == "__main__":
 
         ocr_results = process_images(images_data, current_token)
         print(ocr_results)
+        
+        # Create single file from results
+        file_bytes, filename = create_single_file(ocr_results, pdf_name)
+
+        # Create knowledge collection
+        collection_name = os.path.splitext(pdf_name)[0]
+        collection_result = create_knowledge_collection(file_bytes, filename, collection_name, current_token)
+        print(f"Knowledge collection creation result: {collection_result}")
     except Exception as e:
         import traceback
         traceback.print_exc()
