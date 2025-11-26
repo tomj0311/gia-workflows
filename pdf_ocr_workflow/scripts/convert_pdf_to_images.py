@@ -160,35 +160,15 @@ def create_knowledge_collection(file_bytes, filename, collection_name, auth_toke
         'payload': (None, json.dumps(payload))
     }
     
-    try:
-        response = requests.post(url, headers=headers, params=params, files=files)
-        response.raise_for_status()
-        return response.json()
-    except Exception as e:
-        print(f"Error creating knowledge collection: {e}")
-        return {"error": str(e)}
+    response = requests.post(url, headers=headers, params=params, files=files)
+    response.raise_for_status()
+    return response.json()
 
 if __name__ == "__main__":
-    user = {
-        "id": "M6OXV3z7DTsLzzv7naJXRQ",
-        "role": "user",
-        "tenantId": "da88b6a1-5288-4527-af6b-679c311aece3",
-        "email": "tomj0311@gmail.com",
-        "type": "access",
-        "exp": 1763896151,
-        "iat": 1763867351,
-        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Ik02T1hWM3o3RFRzTHp6djduYUpYUlEiLCJyb2xlIjoidXNlciIsInRlbmFudElkIjoiZGE4OGI2YTEtNTI4OC00NTI3LWFmNmItNjc5YzMxMWFlY2UzIiwiZW1haWwiOiJ0b21qMDMxMUBnbWFpbC5jb20iLCJ0eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzYzOTYyNDkzLCJpYXQiOjE3NjM5MzM2OTN9.zJXEyMKa2Qeb1WMH177XeOZhCQ79HKwYXymwV1HT9e4"
-    }
-
-    pdf_file = {
-        "filename": "MyStatement.pdf",
-        "file_path": "uploads/M6OXV3z7DTsLzzv7naJXRQ/69228bcae13dc93a369a752f/40e565/MyStatement.pdf",
-        "content_type": "application/pdf"
-    }
-
-    current_token = user["token"]
+    import os
     try:
         current_token = user["token"]
+
         images_data, pdf_name = convert_pdf(pdf_file, current_token)
         print(f"PDF Name: {pdf_name}")
         print(f"Number of images: {len(images_data)}")
