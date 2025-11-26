@@ -170,19 +170,15 @@ if __name__ == "__main__":
         current_token = user["token"]
 
         images_data, pdf_name = convert_pdf(pdf_file, current_token)
-        print(f"PDF Name: {pdf_name}")
-        print(f"Number of images: {len(images_data)}")
 
         ocr_results = process_images(images_data, current_token)
-        print(ocr_results)
         
         # Create single file from results
-        file_bytes, filename = create_single_file(ocr_results, pdf_name)
+        _file_bytes, filename = create_single_file(ocr_results, pdf_name)
 
         # Create knowledge collection
         collection_name = os.path.splitext(pdf_name)[0]
-        collection_result = create_knowledge_collection(file_bytes, filename, collection_name, current_token)
-        print(f"Knowledge collection creation result: {collection_result}")
+        collection_result = create_knowledge_collection(_file_bytes, filename, collection_name, current_token)
     except Exception as e:
         import traceback
         traceback.print_exc()
