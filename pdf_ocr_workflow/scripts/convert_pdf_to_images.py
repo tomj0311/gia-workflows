@@ -42,7 +42,7 @@ def convert_pdf(pdf_input, auth_token):
         pdf = pdfium.PdfDocument(response.content)
         for i in range(len(pdf)):
             page = pdf[i]
-            # scale=1 is ~72 DPI, scale=4.17 ≈ 300 DPI
+            # scale=1 is ~72 DPI, scale=2 is ~144 DPI
             bitmap = page.render(
                 scale=2,  # Higher resolution
                 rotation=0,
@@ -53,9 +53,9 @@ def convert_pdf(pdf_input, auth_token):
             pil_image.save(img_byte_arr, format='PNG', optimize=False, compress_level=0)
             images_data.append(img_byte_arr.getvalue())
             
-    return images_data, pdf_name
+    return images_data, pdf_name, file_path
 
-def upload_images_to_minio(images_data, pdf_name, pdf_file, auth_token):
+def upload_images_to_minio(images_data, pdf_name, origin_path, auth_token):
     """Upload extracted images to MinIO and return the list of uploaded paths."""
     import os
     import requests
@@ -64,7 +64,7 @@ def upload_images_to_minio(images_data, pdf_name, pdf_file, auth_token):
     uploaded_paths = []
     
     # Get the folder where the PDF is located
-    pdf_folder = os.path.dirname(pdf_file["file_path"])
+    pdf_folder = os.path.dirname(origin_path)
     extracted_folder = f"{pdf_folder}/extracted_files"
     
     # API endpoint for upload (use the path-based endpoint)
@@ -90,96 +90,23 @@ def upload_images_to_minio(images_data, pdf_name, pdf_file, auth_token):
         if uploaded_files:
             uploaded_path = uploaded_files[0].get('path', '')
             uploaded_paths.append(uploaded_path)
-            print(f"Uploaded to MinIO: {uploaded_path}")
-        else:
-            print(f"Uploaded {img_filename} successfully")
     
     return uploaded_paths
 
-def process_images(images, auth_token_val):
-    import requests
-    import io
-    import os
-
-    results = []
+# Main block
+try:
+    current_token = user["token"]
     
-    # Get API host from environment variable
-    api_host = os.environ.get("CLIENT_URL", "http://localhost:4000")
-    url = f"{api_host.rstrip('/')}/api/agent-runtime/run_non_streaming"
+    # 1. Convert PDF to List of Bytes
+    raw_images, pdf_filename, pdf_path = convert_pdf(pdf_file, current_token)
     
-    headers = {"Authorization": f"Bearer {auth_token_val}"}
-
-    for i, image_bytes in enumerate(images):
-        data = {
-            "agent_name": "Image to Markdown", 
-            "prompt": "Perform OCR on the attached image. Return only the result text in markdown format without any comments. Preserve tabular formats if any."
-        }
-        
-        files = {
-            'files': (f'page_{i+1}.png', io.BytesIO(image_bytes), 'image/png')
-        }
-        response = requests.post(url, headers=headers, data=data, files=files, stream=False)
-        response.raise_for_status()
-        json_data = response.json()
-        markdown_text = json_data.get("content", "")
-        results.append(markdown_text)
-            
-    return results
-
-def create_single_file(results, pdf_name):
-    import os
-    """Combines OCR results into a single markdown file."""
-    combined_text = "\n\n".join(results)
-    file_bytes = combined_text.encode('utf-8')
-    filename = f"{os.path.splitext(pdf_name)[0]}.md"
-    return file_bytes, filename
-
-def create_knowledge_collection(file_bytes, filename, collection_name, auth_token):
-    import requests
-    import json
-    import io
-    import os
-    """Creates a knowledge collection via the API."""
+    # 2. Upload those bytes to MinIO so they have paths
+    images_data = upload_images_to_minio(raw_images, pdf_filename, pdf_path, current_token)
     
-    api_host = os.environ.get("CLIENT_URL", "http://localhost:4000")
-    url = f"{api_host.rstrip('/')}/api/knowledge/update"
+    # Provide pdf_name for downstream
+    pdf_name = pdf_filename
     
-    headers = {"Authorization": f"Bearer {auth_token}"}
-    params = {"collection": collection_name}
-    
-    payload = {
-        "name": collection_name,
-        "category": "ocr-results",
-        "model_name": "MiniLML6",
-        "type": "knowledgeConfig",
-        "overwrite": False
-    }
-    
-    files = {
-        'files': (filename, io.BytesIO(file_bytes), 'text/markdown'),
-        'payload': (None, json.dumps(payload))
-    }
-    
-    response = requests.post(url, headers=headers, params=params, files=files)
-    response.raise_for_status()
-    return response.json()
-
-if __name__ == "__main__":
-    import os
-    try:
-        current_token = user["token"]
-
-        images_data, pdf_name = convert_pdf(pdf_file, current_token)
-
-        ocr_results = process_images(images_data, current_token)
-        
-        # Create single file from results
-        _file_bytes, filename = create_single_file(ocr_results, pdf_name)
-
-        # Create knowledge collection
-        collection_name = os.path.splitext(pdf_name)[0]
-        collection_result = create_knowledge_collection(_file_bytes, filename, collection_name, current_token)
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise
+except Exception as e:
+    import traceback
+    traceback.print_exc()
+    raise

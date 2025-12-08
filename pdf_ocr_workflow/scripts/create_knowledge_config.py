@@ -1,11 +1,12 @@
 """Creates knowledge config from OCR results. | Inputs: ocr_results, pdf_name, token | Outputs: upload_response"""
-"""Creates knowledge config from OCR results. | Inputs: ocr_results, pdf_name, token | Outputs: upload_response"""
 
 def create_config(results, name, auth_token_val):
     import requests
     import json
+    import io
 
-    markdown_content = f"# {name}\n\n" + "\n\n".join(results)
+    # results is now a single markdown string
+    markdown_content = f"# {name}\n\n{results}"
 
     config_payload = {
         "name": name,
@@ -15,6 +16,8 @@ def create_config(results, name, auth_token_val):
     }
 
     base_url = "http://localhost:8000"
+    
+    # Safe collection name
     collection_name = name.replace(" ", "_").replace(".", "_") 
 
     files = {
@@ -33,25 +36,35 @@ def create_config(results, name, auth_token_val):
         'Authorization': f'Bearer {auth_token_val}'
     }
 
-    try:
+    try:       
+        import os
+        api_host = os.environ.get("CLIENT_URL", "http://localhost:4000")
+        
+        # Override base_url to be safe and consistent with the "complete" script reference
+        url = f"{api_host.rstrip('/')}/api/knowledge/upload"
+        
         response = requests.post(
-            f"{base_url}/api/knowledge/upload",
+            url,
             params=params,
             headers=headers,
             data=data,
             files=files
         )
-        return response.text
+        response.raise_for_status()
+        return response.json()
     except Exception as e:
         return f"Error: {e}"
 
-# Main block: Variables defined here are GLOBAL and VISIBLE in UI
+# Main block
+try:
+    current_token = user["token"]
 
-# Resolve token in main block to pass to function
-current_token = token if 'token' in globals() else ''
-if not current_token and 'user' in globals() and hasattr(user, 'token'):
-    current_token = user.token
-elif not current_token and 'user' in globals() and isinstance(user, dict):
-    current_token = user.get('token')
-
-upload_response = create_config(ocr_results, pdf_name, current_token)
+    # ocr_results is the markdown string from the User Task (or previous step)
+    # pdf_name is passed through
+    
+    upload_response = create_config(ocr_results, pdf_name, current_token)
+    
+except Exception as e:
+    import traceback
+    traceback.print_exc()
+    raise

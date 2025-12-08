@@ -18,6 +18,7 @@
     <userTask id="upload_pdf" name="Upload PDF">
       <documentation>User uploads a PDF file for OCR processing.</documentation>
       <incoming>Flow_Start_Upload</incoming>
+      <incoming>Flow_Gateway_Upload</incoming>
       <outgoing>Flow_Upload_Convert</outgoing>
       <extensionElements>
         <formData xmlns="http://example.org/form">
@@ -38,14 +39,42 @@
     <scriptTask id="process_images_with_agent" name="Process Images with Agent" scriptFormat="python">
       <documentation>Processes each image using an AI agent to extract text (OCR).</documentation>
       <incoming>Flow_Convert_Process</incoming>
-      <outgoing>Flow_Process_Config</outgoing>
+      <outgoing>Flow_Process_Validate</outgoing>
       <script>scripts/process_images_with_agent.py</script>
     </scriptTask>
+
+    <!-- User Task: Validate OCR Results -->
+    <userTask id="validate_ocr" name="Validate OCR Results">
+      <documentation>Review and edit the OCR results before creating the knowledge base.</documentation>
+      <incoming>Flow_Process_Validate</incoming>
+      <outgoing>Flow_Validate_Gateway</outgoing>
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="ocr_results" label="OCR Markdown" type="Text" required="true">
+             <properties>
+                <property id="rows" value="20"/>
+             </properties>
+          </formField>
+          <formField id="validation_status" label="Resolution" type="enum" required="true" defaultValue="Approved">
+            <value id="Approved" name="Approved"/>
+            <value id="Rejected" name="Rejected"/>
+          </formField>
+          <formField id="pdf_name" label="Filename" type="String" readonly="true"/>
+        </formData>
+      </extensionElements>
+    </userTask>
+
+    <!-- Exclusive Gateway -->
+    <exclusiveGateway id="Gateway_Validation" name="Validation Check">
+      <incoming>Flow_Validate_Gateway</incoming>
+      <outgoing>Flow_Gateway_Config</outgoing>
+      <outgoing>Flow_Gateway_Upload</outgoing>
+    </exclusiveGateway>
 
     <!-- Script Task: Create Knowledge Config -->
     <scriptTask id="create_knowledge_config" name="Create Knowledge Config" scriptFormat="python">
       <documentation>Aggregates OCR results and creates a knowledge configuration.</documentation>
-      <incoming>Flow_Process_Config</incoming>
+      <incoming>Flow_Gateway_Config</incoming>
       <outgoing>Flow_Config_End</outgoing>
       <script>scripts/create_knowledge_config.py</script>
     </scriptTask>
@@ -59,7 +88,19 @@
     <sequenceFlow id="Flow_Start_Upload" sourceRef="StartEvent_1" targetRef="upload_pdf"/>
     <sequenceFlow id="Flow_Upload_Convert" sourceRef="upload_pdf" targetRef="convert_pdf_to_images"/>
     <sequenceFlow id="Flow_Convert_Process" sourceRef="convert_pdf_to_images" targetRef="process_images_with_agent"/>
-    <sequenceFlow id="Flow_Process_Config" sourceRef="process_images_with_agent" targetRef="create_knowledge_config"/>
+    <sequenceFlow id="Flow_Process_Validate" sourceRef="process_images_with_agent" targetRef="validate_ocr"/>
+    <sequenceFlow id="Flow_Validate_Gateway" sourceRef="validate_ocr" targetRef="Gateway_Validation"/>
+    
+    <!-- Conditional Flow: Approved -->
+    <sequenceFlow id="Flow_Gateway_Config" sourceRef="Gateway_Validation" targetRef="create_knowledge_config">
+      <conditionExpression xsi:type="tFormalExpression">${validation_status == 'Approved'}</conditionExpression>
+    </sequenceFlow>
+    
+    <!-- Conditional Flow: Rejected (Loop Back) -->
+    <sequenceFlow id="Flow_Gateway_Upload" sourceRef="Gateway_Validation" targetRef="upload_pdf">
+      <conditionExpression xsi:type="tFormalExpression">${validation_status == 'Rejected'}</conditionExpression>
+    </sequenceFlow>
+    
     <sequenceFlow id="Flow_Config_End" sourceRef="create_knowledge_config" targetRef="EndEvent_Success"/>
   </process>
 
@@ -69,39 +110,60 @@
         <dc:Bounds x="100" y="100" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="UserTask_1_di" bpmnElement="upload_pdf">
-        <dc:Bounds x="250" y="80" width="100" height="80" />
+        <dc:Bounds x="200" y="80" width="100" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ScriptTask_1_di" bpmnElement="convert_pdf_to_images">
-        <dc:Bounds x="400" y="80" width="100" height="80" />
+        <dc:Bounds x="350" y="80" width="100" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ScriptTask_2_di" bpmnElement="process_images_with_agent">
-        <dc:Bounds x="550" y="80" width="100" height="80" />
+        <dc:Bounds x="500" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="UserTask_2_di" bpmnElement="validate_ocr">
+        <dc:Bounds x="650" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_1_di" bpmnElement="Gateway_Validation" isMarkerVisible="true">
+        <dc:Bounds x="800" y="95" width="50" height="50" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ScriptTask_3_di" bpmnElement="create_knowledge_config">
-        <dc:Bounds x="700" y="80" width="100" height="80" />
+        <dc:Bounds x="900" y="80" width="100" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndEvent_1_di" bpmnElement="EndEvent_Success">
-        <dc:Bounds x="850" y="100" width="36" height="36" />
+        <dc:Bounds x="1050" y="100" width="36" height="36" />
       </bpmndi:BPMNShape>
+      
       <bpmndi:BPMNEdge id="Flow_Start_Upload_di" bpmnElement="Flow_Start_Upload">
         <di:waypoint x="136" y="118" />
-        <di:waypoint x="250" y="120" />
+        <di:waypoint x="200" y="120" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_Upload_Convert_di" bpmnElement="Flow_Upload_Convert">
+        <di:waypoint x="300" y="120" />
         <di:waypoint x="350" y="120" />
-        <di:waypoint x="400" y="120" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_Convert_Process_di" bpmnElement="Flow_Convert_Process">
+        <di:waypoint x="450" y="120" />
         <di:waypoint x="500" y="120" />
-        <di:waypoint x="550" y="120" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_Process_Config_di" bpmnElement="Flow_Process_Config">
+      <bpmndi:BPMNEdge id="Flow_Process_Validate_di" bpmnElement="Flow_Process_Validate">
+        <di:waypoint x="600" y="120" />
         <di:waypoint x="650" y="120" />
-        <di:waypoint x="700" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Validate_Gateway_di" bpmnElement="Flow_Validate_Gateway">
+        <di:waypoint x="750" y="120" />
+        <di:waypoint x="800" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Gateway_Config_di" bpmnElement="Flow_Gateway_Config">
+        <di:waypoint x="850" y="120" />
+        <di:waypoint x="900" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Gateway_Upload_di" bpmnElement="Flow_Gateway_Upload">
+        <di:waypoint x="825" y="145" />
+        <di:waypoint x="825" y="180" />
+        <di:waypoint x="250" y="180" />
+        <di:waypoint x="250" y="160" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_Config_End_di" bpmnElement="Flow_Config_End">
-        <di:waypoint x="800" y="120" />
-        <di:waypoint x="850" y="118" />
+        <di:waypoint x="1000" y="120" />
+        <di:waypoint x="1050" y="118" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
