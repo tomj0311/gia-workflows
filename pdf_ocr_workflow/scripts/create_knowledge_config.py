@@ -9,10 +9,11 @@ def create_config(results, name, auth_token_val):
     markdown_content = f"# {name}\n\n{results}"
 
     config_payload = {
-        "name": name,
-        "category": "Uploaded Documents",
-        "model_id": "gemini-embedding-001", 
-        "type": "knowledgeConfig"
+        "name": f"_{name}",
+        "category": "ocr-results",
+        "model_name": "MiniLML6", 
+        "type": "knowledgeConfig",
+        "overwrite": True
     }
 
     base_url = "http://localhost:8000"
