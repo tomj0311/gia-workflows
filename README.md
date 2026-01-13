@@ -146,7 +146,7 @@ const EnterData = ({ initialData = {} }) => {
 // Pre-loaded: useState, Box, TextField, Button, Typography, etc.
 // MANDATORY: Validate all fields before calling submitWorkflowForm(data)
 // STYLING: Do NOT use custom colors (hex/rgb) or themes. The parent application applies the theme automatically.
-// Use standard layout components (Box, Grid, Stack) for structure only.
+// Use standard Material UI components (Box, Grid, Stack) for structure only.
 ```
 
 ---
