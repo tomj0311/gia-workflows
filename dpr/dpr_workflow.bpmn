@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+  <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+    xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+    xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+    xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0"
+    xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0"
+    id="Definitions_1"
+    targetNamespace="http://example.com/bpmn"
+    xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL http://www.omg.org/spec/BPMN/2.0/20100501/BPMN20.xsd">
+    <process id="DprWorkflow" isExecutable="true">
+      <startEvent id="start_dpr" name="Start DPR Process">
+        <outgoing>Flow_Start_Upload</outgoing>
+      </startEvent>
+      <endEvent id="dpr_approved" name="DPR Approved">
+        <incoming>Flow_Finance_End</incoming>
+        <incoming>Flow_Internal_End</incoming>
+      </endEvent>
+      <serviceTask id="ServiceTask_09F3D7" name="Ask AI">
+        <incoming>SequenceFlow_CEC7A9</incoming>
+        <outgoing>SequenceFlow_1BEFD7</outgoing>
+        <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+          <serviceConfiguration xmlns="http://example.org/service">
+            <function>
+              <moduleName>Agent Call</moduleName>
+              <functionName>execute_agent</functionName>
+              <parameters>
+                <parameter name="prompt" value="Based on the {checklist_notes} - notes,  find any related information from {pdf_read_results} and give a short answer. If nothing is found say I cannot find any related details. Do not show any other additional information, stick to specifics.  "/>
+                <parameter name="agent_name" value="Workflow Agent"/>
+              </parameters>
+            </function>
+          </serviceConfiguration>
+          <resultVariable name="checklist_validation"/>
+        </extensionElements>
+      </serviceTask>
+      <userTask id="upload_dpr_file" name="Upload DPR File">
+        <documentation>District Office uploads the DPR file for processing.</documentation>
+        <incoming>Flow_Start_Upload</incoming>
+        <incoming>Flow_Rejected_To_Upload</incoming>
+        <outgoing>SequenceFlow_066936</outgoing>
+        <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+          <formData xmlns="http://example.org/form">
+            <formField id="dpr_file" label="Upload DPR Document" type="Files" required="true"/>
+            <formField id="estimated_cost" label="Estimated Cost (in Lakhs)" type="String" required="true"/>
+            <formField id="remarks" label="Remarks" type="String" required="false"/>
+          </formData>
+          <component xmlns="http://example.org/component">components/FileUploadForm.jsx</component>
+        </extensionElements>
+      </userTask>
+      <userTask id="project_engineer_approval" name="Project Engineer Approval">
+        <documentation>Project Engineer at District Office reviews and approves the DPR.</documentation>
+        <incoming>SequenceFlow_B25E01</incoming>
+        <outgoing>SequenceFlow_39D96B</outgoing>
+        <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+          <formData xmlns="http://example.org/form">
+            <formField id="approved" label="Approved" type="Boolean" required="true"/>
+            <formField id="remarks" label="Remarks" type="String" required="false"/>
+          </formData>
+          <component xmlns="http://example.org/component">components/RemarksApprovalForm.jsx</component>
+        </extensionElements>
+      </userTask>
+      <userTask id="head_office_entry" name="Head Office Entry">
+        <documentation>Head Office personnel enters the DPR into the system.</documentation>
+        <incoming>SequenceFlow_8874F0</incoming>
+        <outgoing>Flow_HeadOffice_Gateway</outgoing>
+        <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+          <formData xmlns="http://example.org/form">
+            <formField id="approved" label="Approved" type="Boolean" required="true"/>
+            <formField id="estimated_cost" label="Estimated Cost (in Lakhs)" type="String" required="true"/>
+            <formField id="remarks" label="Remarks" type="String" required="false"/>
+          </formData>
+          <component xmlns="http://example.org/component">components/HeadOfficeEntryForm.jsx</component>
+        </extensionElements>
+      </userTask>
+      <userTask id="planning_officer_review" name="Planning Officer Review">
+        <documentation>Planning Officer reviews the DPR submission.</documentation>
+        <incoming>Flow_HeadOffice_Approved</incoming>
+        <outgoing>Flow_PO_APO</outgoing>
+        <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+          <formData xmlns="http://example.org/form">
+            <formField id="approved" label="Approved" type="Boolean" required="true"/>
+            <formField id="remarks" label="Remarks" type="String" required="false"/>
+          </formData>
+          <component xmlns="http://example.org/component">components/RemarksApprovalForm.jsx</component>
+        </extensionElements>
+      </userTask>
+      <userTask id="assistant_planning_officer_review" name="Assistant Planning Officer Review">
+        <documentation>Assistant Planning Officer performs detailed review of the DPR.</documentation>
+        <incoming>Flow_PO_APO</incoming>
+        <outgoing>Flow_APO_Director</outgoing>
+        <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+          <formData xmlns="http://example.org/form">
+            <formField id="remarks" label="Remarks" type="String" required="false"/>
+          </formData>
+          <component xmlns="http://example.org/component">components/RemarksForm.jsx</component>
+        </extensionElements>
+      </userTask>
+      <userTask id="director_approval" name="Director Approval">
+        <documentation>Director reviews and provides final approval for the DPR.</documentation>
+        <incoming>Flow_APO_Director</incoming>
+        <outgoing>Flow_Director_CostGateway</outgoing>
+        <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+          <formData xmlns="http://example.org/form">
+            <formField id="approved" label="Approved" type="Boolean" required="true"/>
+            <formField id="remarks" label="Remarks" type="String" required="false"/>
+          </formData>
+          <component xmlns="http://example.org/component">components/RemarksApprovalForm.jsx</component>
+        </extensionElements>
+      </userTask>
+      <userTask id="finance_section_approval" name="Finance Section Approval">
+        <documentation>Finance Section reviews and approves high-value DPR (above 1 Crore).</documentation>
+        <incoming>Flow_HighCost_Finance</incoming>
+        <outgoing>Flow_Finance_End</outgoing>
+        <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+          <formData xmlns="http://example.org/form">
+            <formField id="approved" label="Approved" type="Boolean" required="true"/>
+            <formField id="remarks" label="Remarks" type="String" required="false"/>
+          </formData>
+          <component xmlns="http://example.org/component">components/RemarksApprovalForm.jsx</component>
+        </extensionElements>
+      </userTask>
+      <userTask id="internal_planning_approval" name="Internal Planning Approval">
+        <documentation>Internal Planning team approves DPR (1 Crore or below).</documentation>
+        <incoming>Flow_LowCost_Internal</incoming>
+        <outgoing>Flow_Internal_End</outgoing>
+        <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+          <formData xmlns="http://example.org/form">
+            <formField id="approved" label="Approved" type="Boolean" required="true"/>
+            <formField id="remarks" label="Remarks" type="String" required="false"/>
+          </formData>
+          <component xmlns="http://example.org/component">components/RemarksApprovalForm.jsx</component>
+        </extensionElements>
+      </userTask>
+      <userTask id="UserTask_7B1E13" name="Checklist Validation">
+        <incoming>SequenceFlow_39D96B</incoming>
+        <outgoing>SequenceFlow_CEC7A9</outgoing>
+        <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+          <formData xmlns="http://example.org/form">
+            <formField id="checklist_notes" label="Checklist Information" type="String" required="true"/>
+          </formData>
+          <component xmlns="http://example.org/component">components/ChecklistForm.jsx</component>
+        </extensionElements>
+      </userTask>
+      <userTask id="UserTask_AADFFB" name="Approve Validation">
+        <incoming>SequenceFlow_1BEFD7</incoming>
+        <outgoing>SequenceFlow_8874F0</outgoing>
+        <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+          <formData xmlns="http://example.org/form">
+            <formField id="approve" label="Approve" type="Boolean" required="true"/>
+          </formData>
+          <component xmlns="http://example.org/form">
+            <componentPath>components/UserTask_AADFFB.jsx</componentPath>
+          </component>
+        </extensionElements>
+      </userTask>
+      <scriptTask id="ScriptTask_D09062" name="Pdf 2 Text">
+        <incoming>SequenceFlow_066936</incoming>
+        <outgoing>SequenceFlow_B25E01</outgoing>
+        <script xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">scripts/ScriptTask_D09062.py</script>
+      </scriptTask>
+      <exclusiveGateway id="Gateway_HeadOffice" name="Head Office Approved?">
+        <incoming>Flow_HeadOffice_Gateway</incoming>
+        <outgoing>Flow_HeadOffice_Approved</outgoing>
+        <outgoing>Flow_Rejected_To_Upload</outgoing>
+      </exclusiveGateway>
+      <exclusiveGateway id="Gateway_CostThreshold" name="Cost Above 1 Crore?">
+        <incoming>Flow_Director_CostGateway</incoming>
+        <outgoing>Flow_HighCost_Finance</outgoing>
+        <outgoing>Flow_LowCost_Internal</outgoing>
+      </exclusiveGateway>
+      <sequenceFlow id="Flow_Start_Upload" sourceRef="start_dpr" targetRef="upload_dpr_file" />
+      <sequenceFlow id="Flow_HeadOffice_Gateway" sourceRef="head_office_entry" targetRef="Gateway_HeadOffice" />
+      <sequenceFlow id="Flow_HeadOffice_Approved" sourceRef="Gateway_HeadOffice" targetRef="planning_officer_review">
+        <conditionExpression xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="tFormalExpression">approved == True</conditionExpression>
+      </sequenceFlow>
+      <sequenceFlow id="Flow_Rejected_To_Upload" sourceRef="Gateway_HeadOffice" targetRef="upload_dpr_file">
+        <conditionExpression xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="tFormalExpression">approved == False</conditionExpression>
+      </sequenceFlow>
+      <sequenceFlow id="Flow_PO_APO" sourceRef="planning_officer_review" targetRef="assistant_planning_officer_review" />
+      <sequenceFlow id="Flow_APO_Director" sourceRef="assistant_planning_officer_review" targetRef="director_approval" />
+      <sequenceFlow id="Flow_Director_CostGateway" sourceRef="director_approval" targetRef="Gateway_CostThreshold" />
+      <sequenceFlow id="Flow_HighCost_Finance" sourceRef="Gateway_CostThreshold" targetRef="finance_section_approval">
+        <conditionExpression xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="tFormalExpression">int(estimated_cost) &gt; 100</conditionExpression>
+      </sequenceFlow>
+      <sequenceFlow id="Flow_LowCost_Internal" sourceRef="Gateway_CostThreshold" targetRef="internal_planning_approval">
+        <conditionExpression xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="tFormalExpression">int(estimated_cost) &lt;= 100</conditionExpression>
+      </sequenceFlow>
+      <sequenceFlow id="Flow_Finance_End" sourceRef="finance_section_approval" targetRef="dpr_approved" />
+      <sequenceFlow id="Flow_Internal_End" sourceRef="internal_planning_approval" targetRef="dpr_approved" />
+      <sequenceFlow id="SequenceFlow_066936" sourceRef="upload_dpr_file" targetRef="ScriptTask_D09062" sourceHandle="task-output" targetHandle="task-input" />
+      <sequenceFlow id="SequenceFlow_B25E01" sourceRef="ScriptTask_D09062" targetRef="project_engineer_approval" sourceHandle="task-output" targetHandle="task-input" />
+      <sequenceFlow id="SequenceFlow_39D96B" sourceRef="project_engineer_approval" targetRef="UserTask_7B1E13" sourceHandle="task-output" targetHandle="task-input" />
+      <sequenceFlow id="SequenceFlow_CEC7A9" sourceRef="UserTask_7B1E13" targetRef="ServiceTask_09F3D7" sourceHandle="task-output" targetHandle="task-input" />
+      <sequenceFlow id="SequenceFlow_1BEFD7" sourceRef="ServiceTask_09F3D7" targetRef="UserTask_AADFFB" sourceHandle="task-output" targetHandle="task-input" />
+      <sequenceFlow id="SequenceFlow_8874F0" sourceRef="UserTask_AADFFB" targetRef="head_office_entry" sourceHandle="task-output" targetHandle="task-input" />
+    </process>
+    <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+      <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="DprWorkflow">
+        <bpmndi:BPMNShape id="_BPMNShape_StartEvent" bpmnElement="start_dpr">
+          <dc:Bounds x="100" y="200" width="36" height="36" />
+          <bpmndi:BPMNLabel>
+            <dc:Bounds x="100" y="241" width="36" height="40" />
+          </bpmndi:BPMNLabel>
+        </bpmndi:BPMNShape>
+        <bpmndi:BPMNShape id="dpr_approved_di" bpmnElement="dpr_approved">
+          <dc:Bounds x="1001.3228520001105" y="452.73754638914636" width="36" height="36" />
+          <bpmndi:BPMNLabel>
+            <dc:Bounds x="1550" y="241" width="36" height="40" />
+          </bpmndi:BPMNLabel>
+        </bpmndi:BPMNShape>
+        <bpmndi:BPMNShape id="ServiceTask_09F3D7_di" bpmnElement="ServiceTask_09F3D7">
+          <dc:Bounds x="679.8268980344989" y="179.25765291810345" width="100" height="60" />
+          <bpmndi:BPMNLabel>
+            <dc:Bounds x="679.8268980344989" y="244.25765291810345" width="100" height="40" />
+          </bpmndi:BPMNLabel>
+        </bpmndi:BPMNShape>
+        <bpmndi:BPMNShape id="upload_dpr_file_di" bpmnElement="upload_dpr_file">
+          <dc:Bounds x="200" y="178" width="100" height="80" />
+          <bpmndi:BPMNLabel>
+            <dc:Bounds x="200" y="263" width="100" height="40" />
+          </bpmndi:BPMNLabel>
+        </bpmndi:BPMNShape>
+        <bpmndi:BPMNShape id="project_engineer_approval_di" bpmnElement="project_engineer_approval">
+          <dc:Bounds x="362.9911062311555" y="178.9970354103852" width="100" height="80" />
+          <bpmndi:BPMNLabel>
+            <dc:Bounds x="360" y="263" width="100" height="40" />
+          </bpmndi:BPMNLabel>
+        </bpmndi:BPMNShape>
+        <bpmndi:BPMNShape id="head_office_entry_di" bpmnElement="head_office_entry">
+          <dc:Bounds x="990.9632811017068" y="204.06666420299518" width="100" height="80" />
+          <bpmndi:BPMNLabel>
+            <dc:Bounds x="520" y="263" width="100" height="40" />
+          </bpmndi:BPMNLabel>
+        </bpmndi:BPMNShape>
+        <bpmndi:BPMNShape id="planning_officer_review_di" bpmnElement="planning_officer_review">
+          <dc:Bounds x="252.7766599597585" y="435.1428571428571" width="100" height="80" />
+          <bpmndi:BPMNLabel>
+            <dc:Bounds x="790" y="263" width="100" height="40" />
+          </bpmndi:BPMNLabel>
+        </bpmndi:BPMNShape>
+        <bpmndi:BPMNShape id="assistant_planning_officer_review_di" bpmnElement="assistant_planning_officer_review">
+          <dc:Bounds x="412.7766599597585" y="435.1428571428571" width="100" height="80" />
+          <bpmndi:BPMNLabel>
+            <dc:Bounds x="950" y="263" width="100" height="40" />
+          </bpmndi:BPMNLabel>
+        </bpmndi:BPMNShape>
+        <bpmndi:BPMNShape id="director_approval_di" bpmnElement="director_approval">
+          <dc:Bounds x="572.7766599597585" y="435.1428571428571" width="100" height="80" />
+          <bpmndi:BPMNLabel>
+            <dc:Bounds x="1110" y="263" width="100" height="40" />
+          </bpmndi:BPMNLabel>
+        </bpmndi:BPMNShape>
+        <bpmndi:BPMNShape id="finance_section_approval_di" bpmnElement="finance_section_approval">
+          <dc:Bounds x="843.6577221105006" y="367.7156029517631" width="100" height="80" />
+          <bpmndi:BPMNLabel>
+            <dc:Bounds x="1380" y="185" width="100" height="40" />
+          </bpmndi:BPMNLabel>
+        </bpmndi:BPMNShape>
+        <bpmndi:BPMNShape id="internal_planning_approval_di" bpmnElement="internal_planning_approval">
+          <dc:Bounds x="842.7766599597585" y="527.1428571428571" width="100" height="80" />
+          <bpmndi:BPMNLabel>
+            <dc:Bounds x="1380" y="355" width="100" height="40" />
+          </bpmndi:BPMNLabel>
+        </bpmndi:BPMNShape>
+        <bpmndi:BPMNShape id="UserTask_7B1E13_di" bpmnElement="UserTask_7B1E13">
+          <dc:Bounds x="522.1915425571224" y="179.25765291810353" width="100" height="60" />
+          <bpmndi:BPMNLabel>
+            <dc:Bounds x="522.1915425571224" y="244.25765291810353" width="100" height="40" />
+          </bpmndi:BPMNLabel>
+        </bpmndi:BPMNShape>
+        <bpmndi:BPMNShape id="UserTask_AADFFB_di" bpmnElement="UserTask_AADFFB">
+          <dc:Bounds x="830.2661281045563" y="179.55075568864655" width="100" height="60" />
+          <bpmndi:BPMNLabel>
+            <dc:Bounds x="834.3229177999787" y="244.2576529181035" width="100" height="40" />
+          </bpmndi:BPMNLabel>
+        </bpmndi:BPMNShape>
+        <bpmndi:BPMNShape id="ScriptTask_D09062_di" bpmnElement="ScriptTask_D09062">
+          <dc:Bounds x="281.09711466723223" y="59.97400361546141" width="100" height="60" />
+          <bpmndi:BPMNLabel>
+            <dc:Bounds x="281.09711466723223" y="124.97400361546141" width="100" height="40" />
+          </bpmndi:BPMNLabel>
+        </bpmndi:BPMNShape>
+        <bpmndi:BPMNShape id="Shape_gateway_ho" bpmnElement="Gateway_HeadOffice">
+          <dc:Bounds x="650.7105035353261" y="304.2193546106209" width="50" height="50" />
+          <bpmndi:BPMNLabel>
+            <dc:Bounds x="658.2696177062373" y="351.8229376257545" width="50" height="40" />
+          </bpmndi:BPMNLabel>
+        </bpmndi:BPMNShape>
+        <bpmndi:BPMNShape id="Shape_gateway_cost" bpmnElement="Gateway_CostThreshold">
+          <dc:Bounds x="732.7766599597585" y="450.1428571428571" width="50" height="50" />
+          <bpmndi:BPMNLabel>
+            <dc:Bounds x="1270" y="248" width="50" height="40" />
+          </bpmndi:BPMNLabel>
+        </bpmndi:BPMNShape>
+        <bpmndi:BPMNEdge id="Edge_start_upload" bpmnElement="Flow_Start_Upload">
+          <di:waypoint x="136" y="218" />
+          <di:waypoint x="200" y="218" />
+        </bpmndi:BPMNEdge>
+        <bpmndi:BPMNEdge id="Edge_ho_gateway" bpmnElement="Flow_HeadOffice_Gateway">
+          <di:waypoint x="620" y="218" />
+          <di:waypoint x="680" y="218" />
+        </bpmndi:BPMNEdge>
+        <bpmndi:BPMNEdge id="Edge_ho_approved" bpmnElement="Flow_HeadOffice_Approved">
+          <di:waypoint x="730" y="218" />
+          <di:waypoint x="790" y="218" />
+        </bpmndi:BPMNEdge>
+        <bpmndi:BPMNEdge id="Edge_rejected" bpmnElement="Flow_Rejected_To_Upload">
+          <di:waypoint x="705" y="243" />
+          <di:waypoint x="705" y="340" />
+          <di:waypoint x="250" y="340" />
+          <di:waypoint x="250" y="258" />
+        </bpmndi:BPMNEdge>
+        <bpmndi:BPMNEdge id="Edge_po_apo" bpmnElement="Flow_PO_APO">
+          <di:waypoint x="890" y="218" />
+          <di:waypoint x="950" y="218" />
+        </bpmndi:BPMNEdge>
+        <bpmndi:BPMNEdge id="Edge_apo_director" bpmnElement="Flow_APO_Director">
+          <di:waypoint x="1050" y="218" />
+          <di:waypoint x="1110" y="218" />
+        </bpmndi:BPMNEdge>
+        <bpmndi:BPMNEdge id="Edge_director_cost" bpmnElement="Flow_Director_CostGateway">
+          <di:waypoint x="1210" y="218" />
+          <di:waypoint x="1270" y="218" />
+        </bpmndi:BPMNEdge>
+        <bpmndi:BPMNEdge id="Edge_high_cost" bpmnElement="Flow_HighCost_Finance">
+          <di:waypoint x="1295" y="193" />
+          <di:waypoint x="1295" y="140" />
+          <di:waypoint x="1380" y="140" />
+        </bpmndi:BPMNEdge>
+        <bpmndi:BPMNEdge id="Edge_low_cost" bpmnElement="Flow_LowCost_Internal">
+          <di:waypoint x="1295" y="243" />
+          <di:waypoint x="1295" y="310" />
+          <di:waypoint x="1380" y="310" />
+        </bpmndi:BPMNEdge>
+        <bpmndi:BPMNEdge id="Edge_finance_end" bpmnElement="Flow_Finance_End">
+          <di:waypoint x="1480" y="140" />
+          <di:waypoint x="1568" y="140" />
+          <di:waypoint x="1568" y="200" />
+        </bpmndi:BPMNEdge>
+        <bpmndi:BPMNEdge id="Edge_internal_end" bpmnElement="Flow_Internal_End">
+          <di:waypoint x="1480" y="310" />
+          <di:waypoint x="1568" y="310" />
+          <di:waypoint x="1568" y="236" />
+        </bpmndi:BPMNEdge>
+        <bpmndi:BPMNEdge id="SequenceFlow_066936_di" bpmnElement="SequenceFlow_066936">
+          <di:waypoint x="300" y="218" />
+          <di:waypoint x="281" y="100" />
+        </bpmndi:BPMNEdge>
+        <bpmndi:BPMNEdge id="SequenceFlow_B25E01_di" bpmnElement="SequenceFlow_B25E01">
+          <di:waypoint x="381" y="100" />
+          <di:waypoint x="363" y="219" />
+        </bpmndi:BPMNEdge>
+        <bpmndi:BPMNEdge id="SequenceFlow_39D96B_di" bpmnElement="SequenceFlow_39D96B">
+          <di:waypoint x="463" y="219" />
+          <di:waypoint x="522" y="219" />
+        </bpmndi:BPMNEdge>
+        <bpmndi:BPMNEdge id="SequenceFlow_CEC7A9_di" bpmnElement="SequenceFlow_CEC7A9">
+          <di:waypoint x="622" y="219" />
+          <di:waypoint x="680" y="219" />
+        </bpmndi:BPMNEdge>
+        <bpmndi:BPMNEdge id="SequenceFlow_1BEFD7_di" bpmnElement="SequenceFlow_1BEFD7">
+          <di:waypoint x="780" y="219" />
+          <di:waypoint x="834" y="219" />
+        </bpmndi:BPMNEdge>
+        <bpmndi:BPMNEdge id="SequenceFlow_8874F0_di" bpmnElement="SequenceFlow_8874F0">
+          <di:waypoint x="946" y="217" />
+          <di:waypoint x="991" y="244" />
+        </bpmndi:BPMNEdge>
+      </bpmndi:BPMNPlane>
+    </bpmndi:BPMNDiagram>
+  </definitions>

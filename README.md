@@ -145,6 +145,8 @@ const EnterData = ({ initialData = {} }) => {
 // NO import statements! NO export statements!
 // Pre-loaded: useState, Box, TextField, Button, Typography, etc.
 // MANDATORY: Validate all fields before calling submitWorkflowForm(data)
+// STYLING: Do NOT use custom colors (hex/rgb) or themes. The parent application applies the theme automatically.
+// Use standard layout components (Box, Grid, Stack) for structure only.
 ```
 
 ---
@@ -153,37 +155,31 @@ const EnterData = ({ initialData = {} }) => {
 
 **Use for invoking Python functions/modules. For calling other workflows/subprocesses, use Call Activity (see below).**
 
-**Basic Example**:
+**Example**:
 ```xml
 <serviceTask id="analyze" name="Analyze Data">
   <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
     <serviceConfiguration xmlns="http://example.org/service">
       <function>
-        <moduleName>Whisper</moduleName>
-        <functionName>transcribe_uploaded_audio</functionName>
+        <moduleName>AI Agent</moduleName>
+        <functionName>execute_agent_advanced</functionName>
         <parameters>
-          <parameter name="file_path" value=""/>
+          <parameter name="prompt" value=""/>
+          <parameter name="agent_name" value="Default"/>
+          <parameter name="conv_id" value=""/>
+          <parameter name="model" value=""/>
+          <parameter name="tools" value="['AI Agent']"/>
+          <parameter name="collections" value=""/>
+          <parameter name="sub_agents" value=""/>
+          <parameter name="description" value=""/>
+          <parameter name="instructions" value=""/>
+          <parameter name="memory" value=""/>          
+          <parameter name="context_data" value=""/>
         </parameters>
       </function>
     </serviceConfiguration>
-  </extensionElements>
-</serviceTask>
-```
-
-**With Custom Result Variable** (RECOMMENDED for reusability):
-```xml
-<serviceTask id="transcribe_audio" name="Transcribe Audio">
-  <extensionElements xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
-    <serviceConfiguration xmlns="http://example.org/service">
-      <function>
-        <moduleName>Whisper</moduleName>
-        <functionName>transcribe_uploaded_audio</functionName>
-        <parameters>
-          <parameter name="file_path" value=""/>
-        </parameters>
-      </function>
-    </serviceConfiguration>
-    <resultVariable name="transcription_result" />
+    **With Custom Result Variable** (RECOMMENDED for reusability):
+    <resultVariable name="agent_response" />
   </extensionElements>
 </serviceTask>
 ```

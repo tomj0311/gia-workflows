@@ -1,0 +1,513 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             id="tender_process"
+             targetNamespace="http://bpmn.io/schema/bpmn">
+  
+  <process id="tender_process_workflow" name="DPR Tender Process" isExecutable="true">
+    <startEvent id="start" name="Start">
+      <outgoing>flow1</outgoing>
+    </startEvent>
+    
+    <!-- Step 1: User uploads DPR file -->
+    <userTask id="upload_dpr" name="Upload DPR">
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="dpr_file_path" label="DPR File Path" type="String" required="true"/>
+          <formField id="dpr_file_name" label="File Name" type="String" required="true"/>
+        </formData>
+      </extensionElements>
+      <incoming>flow1</incoming>
+      <outgoing>flow2</outgoing>
+    </userTask>
+    
+    <!-- Step 2: Script task converts PDF -->
+    <scriptTask id="convert_pdf" name="Convert PDF" scriptFormat="python">
+      <script>scripts/convert_pdf.py</script>
+      <incoming>flow2</incoming>
+      <outgoing>flow3</outgoing>
+    </scriptTask>
+    
+    <!-- Step 3: Project Engineer validates -->
+    <userTask id="engineer_validation" name="Engineer Validation">
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="checklist_completeness" label="Completeness Check" type="Boolean" required="true"/>
+          <formField id="checklist_technical" label="Technical Check" type="Boolean" required="true"/>
+          <formField id="checklist_financial" label="Financial Check" type="Boolean" required="true"/>
+          <formField id="engineer_remarks" label="Remarks" type="String" required="true"/>
+        </formData>
+      </extensionElements>
+      <incoming>flow3</incoming>
+      <incoming>flow_rejected</incoming>
+      <outgoing>flow4</outgoing>
+    </userTask>
+    
+    <!-- Step 4: Deputy Director approves -->
+    <userTask id="deputy_approval" name="Deputy Approval">
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="deputy_approved" label="Approve?" type="Boolean" required="true"/>
+          <formField id="deputy_remarks" label="Remarks" type="String" required="false"/>
+        </formData>
+      </extensionElements>
+      <incoming>flow4</incoming>
+      <outgoing>flow5</outgoing>
+    </userTask>
+    
+    <exclusiveGateway id="check_deputy_approval" name="Approved?">
+      <incoming>flow5</incoming>
+      <outgoing>flow_approved</outgoing>
+      <outgoing>flow_rejected</outgoing>
+    </exclusiveGateway>
+
+    <!-- Step 5: Head Office Entry -->
+    <userTask id="head_office_entry" name="Head Office Entry">
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="ho_entry_details" label="Entry Details" type="String" required="true"/>
+        </formData>
+      </extensionElements>
+      <incoming>flow_approved</incoming>
+      <outgoing>flow6</outgoing>
+    </userTask>
+
+    <!-- Step 6: Administrative Sanction -->
+    <userTask id="admin_sanction" name="Administrative Sanction">
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="sanction_remarks" label="Sanction Remarks" type="String" required="true"/>
+        </formData>
+      </extensionElements>
+      <incoming>flow6</incoming>
+      <outgoing>flow7</outgoing>
+    </userTask>
+
+    <!-- Step 7: Tender Notice Preparation (AI) -->
+    <serviceTask id="prepare_tender_notice" name="Prepare Tender Notice">
+      <extensionElements>
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>TenderNoticeAgent</moduleName>
+            <functionName>prepare_notice</functionName>
+            <parameters>
+              <parameter name="dpr_file" value="{dpr_file_path}"/>
+              <parameter name="sanction_remarks" value="{sanction_remarks}"/>
+              <parameter name="feedback" value="{notice_comments}"/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="tender_notice_draft" />
+      </extensionElements>
+      <incoming>flow7</incoming>
+      <incoming>flow_notice_rejected</incoming>
+      <outgoing>flow8</outgoing>
+    </serviceTask>
+
+    <!-- Step 8: Officer Reviews Notice -->
+    <userTask id="review_notice" name="Review Notice">
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="notice_approved" label="Approve Notice?" type="Boolean" required="true"/>
+          <formField id="notice_comments" label="Comments (if rejected)" type="String" required="false"/>
+        </formData>
+      </extensionElements>
+      <incoming>flow8</incoming>
+      <outgoing>flow9</outgoing>
+    </userTask>
+
+    <exclusiveGateway id="check_notice_approval" name="Notice Approved?">
+      <incoming>flow9</incoming>
+      <outgoing>flow_notice_approved</outgoing>
+      <outgoing>flow_notice_rejected</outgoing>
+    </exclusiveGateway>
+
+    <!-- Step 9: Get Empaneled Agencies (AI) -->
+    <serviceTask id="get_agencies" name="Get Empaneled Agencies">
+      <extensionElements>
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>GetEmpanelledAgent</moduleName>
+            <functionName>fetch_agencies</functionName>
+            <parameters>
+              <parameter name="context" value="tender_notice_draft"/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="agency_list" />
+      </extensionElements>
+      <incoming>flow_notice_approved</incoming>
+      <outgoing>flow10</outgoing>
+    </serviceTask>
+
+    <!-- Step 10: Send Notification (Agencies) -->
+    <serviceTask id="notify_agencies" name="Notify Agencies">
+      <extensionElements>
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>NotificationsAgent</moduleName>
+            <functionName>send_notification</functionName>
+            <parameters>
+              <parameter name="recipients" value="{agency_list}"/>
+              <parameter name="type" value="tender_invite"/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="notification_status" />
+      </extensionElements>
+      <incoming>flow10</incoming>
+      <outgoing>flow11</outgoing>
+    </serviceTask>
+
+    <!-- Step 11: Concerned Officer Update Tender -->
+    <userTask id="update_tender_details" name="Update Tender Details">
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="agency_name" label="Selected Agency Name" type="String" required="true"/>
+          <formField id="tender_value" label="Tender Value" type="Number" required="true"/>
+          <formField id="officer_remarks" label="Remarks" type="String" required="true"/>
+        </formData>
+      </extensionElements>
+      <incoming>flow11</incoming>
+      <outgoing>flow12</outgoing>
+    </userTask>
+
+    <!-- Step 12: AI Agent Create Memorandum -->
+    <serviceTask id="create_memorandum" name="Create Memorandum">
+      <extensionElements>
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>MemorandumAgent</moduleName>
+            <functionName>create_memo</functionName>
+            <parameters>
+              <parameter name="agency" value="{agency_name}"/>
+              <parameter name="value" value="{tender_value}"/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="memorandum_doc" />
+      </extensionElements>
+      <incoming>flow12</incoming>
+      <outgoing>flow13</outgoing>
+    </serviceTask>
+
+    <!-- Step 13: Send Notification (Stakeholders) -->
+    <serviceTask id="notify_stakeholders" name="Notify Stakeholders">
+      <extensionElements>
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>NotificationsAgent</moduleName>
+            <functionName>notify_stakeholders</functionName>
+            <parameters>
+              <parameter name="memo" value="{memorandum_doc}"/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="stakeholder_notified" />
+      </extensionElements>
+      <incoming>flow13</incoming>
+      <outgoing>flow14</outgoing>
+    </serviceTask>
+
+    <!-- Step 14: Agreement Draft (AI) -->
+    <serviceTask id="draft_agreement" name="Draft Agreement">
+      <extensionElements>
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>AgreementAgent</moduleName>
+            <functionName>generate_draft</functionName>
+            <parameters>
+              <parameter name="memo" value="{memorandum_doc}"/>
+              <parameter name="agency" value="{agency_name}"/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="agreement_draft" />
+      </extensionElements>
+      <incoming>flow14</incoming>
+      <outgoing>flow15</outgoing>
+    </serviceTask>
+
+    <!-- Step 15: Work Order (AI) -->
+    <serviceTask id="generate_work_order" name="Generate Work Order">
+      <extensionElements>
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>WorkOrderAgent</moduleName>
+            <functionName>generate_order</functionName>
+            <parameters>
+              <parameter name="agreement" value="{agreement_draft}"/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="work_order" />
+      </extensionElements>
+      <incoming>flow15</incoming>
+      <outgoing>flow16</outgoing>
+    </serviceTask>
+
+    <!-- Step 16: Review Work Order -->
+    <userTask id="review_work_order" name="Review Work Order">
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+          <formField id="review_comments" label="Comments" type="String" required="true"/>
+          <formField id="review_remarks" label="Remarks" type="String" required="true"/>
+        </formData>
+      </extensionElements>
+      <incoming>flow16</incoming>
+      <outgoing>flow17</outgoing>
+    </userTask>
+
+    <!-- Step 17: Notification to Tender Party (Remit 14 days) -->
+    <serviceTask id="notify_party" name="Notify Party">
+      <extensionElements>
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>NotificationsAgent</moduleName>
+            <functionName>send_work_order</functionName>
+            <parameters>
+              <parameter name="work_order" value="{work_order}"/>
+              <parameter name="instruction" value="Remit within 14 days"/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="party_notified" />
+      </extensionElements>
+      <incoming>flow17</incoming>
+      <outgoing>flow_end</outgoing>
+    </serviceTask>
+
+    <endEvent id="end" name="End">
+      <incoming>flow_end</incoming>
+    </endEvent>
+
+    <!-- Sequence Flows -->
+    <sequenceFlow id="flow1" sourceRef="start" targetRef="upload_dpr" />
+    <sequenceFlow id="flow2" sourceRef="upload_dpr" targetRef="convert_pdf" />
+    <sequenceFlow id="flow3" sourceRef="convert_pdf" targetRef="engineer_validation" />
+    <sequenceFlow id="flow4" sourceRef="engineer_validation" targetRef="deputy_approval" />
+    <sequenceFlow id="flow5" sourceRef="deputy_approval" targetRef="check_deputy_approval" />
+    
+    <sequenceFlow id="flow_approved" sourceRef="check_deputy_approval" targetRef="head_office_entry">
+      <conditionExpression xsi:type="tFormalExpression">deputy_approved == True</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow_rejected" sourceRef="check_deputy_approval" targetRef="engineer_validation">
+      <conditionExpression xsi:type="tFormalExpression">deputy_approved == False</conditionExpression>
+    </sequenceFlow>
+
+    <sequenceFlow id="flow6" sourceRef="head_office_entry" targetRef="admin_sanction" />
+    <sequenceFlow id="flow7" sourceRef="admin_sanction" targetRef="prepare_tender_notice" />
+    <sequenceFlow id="flow8" sourceRef="prepare_tender_notice" targetRef="review_notice" />
+    <sequenceFlow id="flow9" sourceRef="review_notice" targetRef="check_notice_approval" />
+
+    <sequenceFlow id="flow_notice_approved" sourceRef="check_notice_approval" targetRef="get_agencies">
+      <conditionExpression xsi:type="tFormalExpression">notice_approved == True</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow_notice_rejected" sourceRef="check_notice_approval" targetRef="prepare_tender_notice">
+      <conditionExpression xsi:type="tFormalExpression">notice_approved == False</conditionExpression>
+    </sequenceFlow>
+
+    <sequenceFlow id="flow10" sourceRef="get_agencies" targetRef="notify_agencies" />
+    <sequenceFlow id="flow11" sourceRef="notify_agencies" targetRef="update_tender_details" />
+    <sequenceFlow id="flow12" sourceRef="update_tender_details" targetRef="create_memorandum" />
+    <sequenceFlow id="flow13" sourceRef="create_memorandum" targetRef="notify_stakeholders" />
+    <sequenceFlow id="flow14" sourceRef="notify_stakeholders" targetRef="draft_agreement" />
+    <sequenceFlow id="flow15" sourceRef="draft_agreement" targetRef="generate_work_order" />
+    <sequenceFlow id="flow16" sourceRef="generate_work_order" targetRef="review_work_order" />
+    <sequenceFlow id="flow17" sourceRef="review_work_order" targetRef="notify_party" />
+    <sequenceFlow id="flow_end" sourceRef="notify_party" targetRef="end" />
+
+  </process>
+  
+  <bpmndi:BPMNDiagram id="BPMNDiagram_tender_process">
+    <bpmndi:BPMNPlane id="BPMNPlane_tender_process" bpmnElement="tender_process_workflow">
+      <!-- Row 1 -->
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="100" y="122" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="upload_dpr_di" bpmnElement="upload_dpr">
+        <dc:Bounds x="180" y="100" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="convert_pdf_di" bpmnElement="convert_pdf">
+        <dc:Bounds x="330" y="100" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="engineer_validation_di" bpmnElement="engineer_validation">
+        <dc:Bounds x="480" y="100" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="deputy_approval_di" bpmnElement="deputy_approval">
+        <dc:Bounds x="630" y="100" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="check_deputy_approval_di" bpmnElement="check_deputy_approval">
+        <dc:Bounds x="780" y="115" width="50" height="50" />
+      </bpmndi:BPMNShape>
+
+      <!-- Row 2 -->
+      <bpmndi:BPMNShape id="head_office_entry_di" bpmnElement="head_office_entry">
+        <dc:Bounds x="180" y="250" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="admin_sanction_di" bpmnElement="admin_sanction">
+        <dc:Bounds x="330" y="250" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="prepare_tender_notice_di" bpmnElement="prepare_tender_notice">
+        <dc:Bounds x="480" y="250" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="review_notice_di" bpmnElement="review_notice">
+        <dc:Bounds x="630" y="250" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="check_notice_approval_di" bpmnElement="check_notice_approval">
+        <dc:Bounds x="780" y="265" width="50" height="50" />
+      </bpmndi:BPMNShape>
+
+      <!-- Row 3 -->
+      <bpmndi:BPMNShape id="get_agencies_di" bpmnElement="get_agencies">
+        <dc:Bounds x="180" y="400" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="notify_agencies_di" bpmnElement="notify_agencies">
+        <dc:Bounds x="330" y="400" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="update_tender_details_di" bpmnElement="update_tender_details">
+        <dc:Bounds x="480" y="400" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="create_memorandum_di" bpmnElement="create_memorandum">
+        <dc:Bounds x="630" y="400" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="notify_stakeholders_di" bpmnElement="notify_stakeholders">
+        <dc:Bounds x="780" y="400" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <!-- Row 4 -->
+      <bpmndi:BPMNShape id="draft_agreement_di" bpmnElement="draft_agreement">
+        <dc:Bounds x="180" y="550" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="generate_work_order_di" bpmnElement="generate_work_order">
+        <dc:Bounds x="330" y="550" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="review_work_order_di" bpmnElement="review_work_order">
+        <dc:Bounds x="480" y="550" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="notify_party_di" bpmnElement="notify_party">
+        <dc:Bounds x="630" y="550" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_di" bpmnElement="end">
+        <dc:Bounds x="780" y="572" width="36" height="36" />
+      </bpmndi:BPMNShape>
+
+      <!-- Edges -->
+      <bpmndi:BPMNEdge id="flow1_di" bpmnElement="flow1">
+        <di:waypoint x="136" y="140" />
+        <di:waypoint x="180" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow2_di" bpmnElement="flow2">
+        <di:waypoint x="280" y="140" />
+        <di:waypoint x="330" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow3_di" bpmnElement="flow3">
+        <di:waypoint x="430" y="140" />
+        <di:waypoint x="480" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow4_di" bpmnElement="flow4">
+        <di:waypoint x="580" y="140" />
+        <di:waypoint x="630" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow5_di" bpmnElement="flow5">
+        <di:waypoint x="730" y="140" />
+        <di:waypoint x="780" y="140" />
+      </bpmndi:BPMNEdge>
+
+      <!-- Row 1 -> Row 2 (Snake) -->
+      <bpmndi:BPMNEdge id="flow_approved_di" bpmnElement="flow_approved">
+        <di:waypoint x="805" y="165" />
+        <di:waypoint x="805" y="215" />
+        <di:waypoint x="150" y="215" />
+        <di:waypoint x="150" y="290" />
+        <di:waypoint x="180" y="290" />
+      </bpmndi:BPMNEdge>
+      <!-- Loop Back (Reject) -->
+      <bpmndi:BPMNEdge id="flow_rejected_di" bpmnElement="flow_rejected">
+        <di:waypoint x="805" y="115" />
+        <di:waypoint x="805" y="80" />
+        <di:waypoint x="530" y="80" />
+        <di:waypoint x="530" y="100" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="flow6_di" bpmnElement="flow6">
+        <di:waypoint x="280" y="290" />
+        <di:waypoint x="330" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow7_di" bpmnElement="flow7">
+        <di:waypoint x="430" y="290" />
+        <di:waypoint x="480" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow8_di" bpmnElement="flow8">
+        <di:waypoint x="580" y="290" />
+        <di:waypoint x="630" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow9_di" bpmnElement="flow9">
+        <di:waypoint x="730" y="290" />
+        <di:waypoint x="780" y="290" />
+      </bpmndi:BPMNEdge>
+
+      <!-- Row 2 -> Row 3 (Snake) -->
+      <bpmndi:BPMNEdge id="flow_notice_approved_di" bpmnElement="flow_notice_approved">
+        <di:waypoint x="805" y="315" />
+        <di:waypoint x="805" y="370" />
+        <di:waypoint x="150" y="370" />
+        <di:waypoint x="150" y="440" />
+        <di:waypoint x="180" y="440" />
+      </bpmndi:BPMNEdge>
+      <!-- Loop Back (Reject Notice) -->
+      <bpmndi:BPMNEdge id="flow_notice_rejected_di" bpmnElement="flow_notice_rejected">
+        <di:waypoint x="805" y="265" />
+        <di:waypoint x="805" y="230" />
+        <di:waypoint x="530" y="230" />
+        <di:waypoint x="530" y="250" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="flow10_di" bpmnElement="flow10">
+        <di:waypoint x="280" y="440" />
+        <di:waypoint x="330" y="440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow11_di" bpmnElement="flow11">
+        <di:waypoint x="430" y="440" />
+        <di:waypoint x="480" y="440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow12_di" bpmnElement="flow12">
+        <di:waypoint x="580" y="440" />
+        <di:waypoint x="630" y="440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow13_di" bpmnElement="flow13">
+        <di:waypoint x="730" y="440" />
+        <di:waypoint x="780" y="440" />
+      </bpmndi:BPMNEdge>
+
+      <!-- Row 3 -> Row 4 (Snake) -->
+      <bpmndi:BPMNEdge id="flow14_di" bpmnElement="flow14">
+        <di:waypoint x="830" y="480" />
+        <di:waypoint x="830" y="515" />
+        <di:waypoint x="150" y="515" />
+        <di:waypoint x="150" y="590" />
+        <di:waypoint x="180" y="590" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="flow15_di" bpmnElement="flow15">
+        <di:waypoint x="280" y="590" />
+        <di:waypoint x="330" y="590" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow16_di" bpmnElement="flow16">
+        <di:waypoint x="430" y="590" />
+        <di:waypoint x="480" y="590" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow17_di" bpmnElement="flow17">
+        <di:waypoint x="580" y="590" />
+        <di:waypoint x="630" y="590" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_end_di" bpmnElement="flow_end">
+        <di:waypoint x="730" y="590" />
+        <di:waypoint x="780" y="572" /> <!-- end is 36x36, center y=590, so connect to center -->
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>

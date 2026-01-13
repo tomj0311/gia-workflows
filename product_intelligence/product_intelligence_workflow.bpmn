@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.0.0">
+  <process id="product_intelligence_workflow" isExecutable="true">
+    <startEvent id="StartEvent_1" name="Start">
+      <outgoing>Flow_0</outgoing>
+    </startEvent>
+    
+    <!-- User Task: Enter Company Details (Restored from user edit) -->
+    <userTask id="enter_company_details" name="Enter Company Details">
+      <extensionElements>
+        <formData xmlns="http://example.org/form">
+            <formField id="company_name" label="Company Name" type="String" required="true"/>
+        </formData>
+      </extensionElements>
+      <incoming>Flow_0</incoming>
+      <outgoing>Flow_1</outgoing>
+    </userTask>
+    <sequenceFlow id="Flow_0" sourceRef="StartEvent_1" targetRef="enter_company_details" />
+
+    <!-- Service Task 1: Competitor Analysis -->
+    <serviceTask id="competitor_analysis" name="Analyze Competitors">
+      <extensionElements>
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>AI Agent</moduleName>
+            <functionName>execute_agent_advanced</functionName>
+            <parameters>
+              <parameter name="agent_name" value="Competitor Intelligence Specialist"/>
+              <parameter name="description" value="You are a senior Go-To-Market strategist who evaluates competitor product launches with a critical, evidence-driven lens.&#10;Your objective is to uncover:&#10;• How the product is positioned in the market&#10;• Which launch tactics drove success (strengths)&#10;• Where execution fell short (weaknesses)&#10;• Actionable learnings competitors can leverage&#10;Always cite observable signals (messaging, pricing actions, channel mix, timing, engagement metrics). Maintain a crisp, executive tone and focus on strategic value.&#10;IMPORTANT: Conclude your report with a 'Sources:' section, listing all URLs of websites you crawled or searched for this analysis."/>
+              <parameter name="tools" value="['Google Search']"/>
+              <parameter name="prompt" value="Analyze the most recent product launch by {company_name}. Return a bulleted list (max 10 points) covering:&#10;1. Core Value Proposition &amp; Messaging&#10;2. Key Marketing Channels Used&#10;3. Pricing Strategy&#10;4. Notable Strengths in Execution&#10;5. Observable Weaknesses or Gaps"/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="competitor_bullets" />
+        <incoming>Flow_1</incoming>
+        <outgoing>Flow_2</outgoing>
+      </serviceTask>
+    <sequenceFlow id="Flow_1" sourceRef="enter_company_details" targetRef="competitor_analysis" />
+    
+    <!-- Service Task 2: Competitor Report -->
+    <serviceTask id="competitor_report" name="Create Competitor Report">
+      <extensionElements>
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>AI Agent</moduleName>
+            <functionName>execute_agent_advanced</functionName>
+            <parameters>
+              <parameter name="agent_name" value="Competitor Intelligence Specialist"/>
+              <parameter name="description" value="You are a senior Go-To-Market strategist who evaluates competitor product launches with a critical, evidence-driven lens."/>
+              <parameter name="tools" value="[]"/>
+              <parameter name="prompt" value="Using the analysis bullets below, write a comprehensive Competitor Intelligence Report for **{company_name}**.&#10;&#10;Structure the report as follows:&#10;## Executive Summary&#10;## Launch Strategy Breakdown&#10;(Analyze messaging, channels, and pricing)&#10;## SWOT Analysis&#10;(Strengths, Weaknesses, Opportunities, Threats)&#10;## Strategic Takeaways&#10;(3-5 actionable recommendations)&#10;&#10;Analysis Bullets:&#10;{competitor_bullets}"/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="competitor_report_result" />
+        <incoming>Flow_2</incoming>
+        <outgoing>Flow_3</outgoing>
+      </serviceTask>
+    <sequenceFlow id="Flow_2" sourceRef="competitor_analysis" targetRef="competitor_report" />
+
+    <!-- Service Task 3: Sentiment Analysis -->
+    <serviceTask id="sentiment_analysis" name="Analyze Sentiment">
+      <extensionElements>
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>AI Agent</moduleName>
+            <functionName>execute_agent_advanced</functionName>
+            <parameters>
+              <parameter name="agent_name" value="Market Sentiment Specialist"/>
+              <parameter name="description" value="You are a market research expert specializing in sentiment analysis and consumer perception tracking.&#10;Your expertise includes:&#10;• Analyzing social media sentiment and customer feedback&#10;• Identifying positive and negative sentiment drivers&#10;• Tracking brand perception trends across platforms&#10;• Monitoring customer satisfaction and review patterns&#10;• Providing actionable insights on market reception&#10;Focus on extracting sentiment signals from social platforms, review sites, forums, and customer feedback channels.&#10;IMPORTANT: Conclude your report with a 'Sources:' section, listing all URLs of websites you crawled or searched for this analysis."/>
+              <parameter name="tools" value="['Google Search']"/>
+              <parameter name="prompt" value="Summarize market sentiment for {company_name} in &lt;=10 bullets. Cover top positive &amp; negative themes with source mentions (G2, Reddit, Twitter, customer reviews)."/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="sentiment_bullets" />
+        <incoming>Flow_3</incoming>
+        <outgoing>Flow_4</outgoing>
+      </serviceTask>
+    <sequenceFlow id="Flow_3" sourceRef="competitor_report" targetRef="sentiment_analysis" />
+
+    <!-- Service Task 4: Sentiment Report -->
+    <serviceTask id="sentiment_report" name="Create Sentiment Report">
+      <extensionElements>
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>AI Agent</moduleName>
+            <functionName>execute_agent_advanced</functionName>
+            <parameters>
+              <parameter name="agent_name" value="Market Sentiment Specialist"/>
+              <parameter name="description" value="You are a market research expert specializing in sentiment analysis and consumer perception tracking."/>
+              <parameter name="tools" value="[]"/>
+              <parameter name="prompt" value="Use the tagged bullets below to create a concise market-sentiment brief for **{company_name}**.&#10;&#10;### Positive Sentiment&#10;• List each positive point as a separate bullet (max 6).&#10;&#10;### Negative Sentiment&#10;• List each negative point as a separate bullet (max 6).&#10;&#10;### Overall Summary&#10;Provide a short paragraph (&lt;=120 words) summarising the overall sentiment balance and key drivers.&#10;&#10;Tagged Bullets:&#10;{sentiment_bullets}"/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="sentiment_report_result" />
+        <incoming>Flow_4</incoming>
+        <outgoing>Flow_5</outgoing>
+      </serviceTask>
+    <sequenceFlow id="Flow_4" sourceRef="sentiment_analysis" targetRef="sentiment_report" />
+
+    <!-- Service Task 5: Metrics Analysis -->
+    <serviceTask id="metrics_analysis" name="Analyze Metrics">
+      <extensionElements>
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>AI Agent</moduleName>
+            <functionName>execute_agent_advanced</functionName>
+            <parameters>
+              <parameter name="agent_name" value="Launch Metrics Specialist"/>
+              <parameter name="description" value="You are a product launch performance analyst who specializes in tracking and analyzing launch KPIs.&#10;Your focus areas include:&#10;• User adoption and engagement metrics&#10;• Revenue and business performance indicators&#10;• Market penetration and growth rates&#10;• Press coverage and media attention analysis&#10;• Social media traction and viral coefficient tracking&#10;• Competitive market share analysis&#10;Always provide quantitative insights with context and benchmark against industry standards when possible.&#10;IMPORTANT: Conclude your report with a 'Sources:' section, listing all URLs of websites you crawled or searched for this analysis."/>
+              <parameter name="tools" value="['Google Search']"/>
+              <parameter name="prompt" value="List (max 10 bullets) the most important publicly available KPIs &amp; qualitative signals for {company_name}'s recent product launches. Include engagement stats, press coverage, adoption metrics, and market traction data if available."/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="metrics_bullets" />
+        <incoming>Flow_5</incoming>
+        <outgoing>Flow_6</outgoing>
+      </serviceTask>
+    <sequenceFlow id="Flow_5" sourceRef="sentiment_report" targetRef="metrics_analysis" />
+
+    <!-- Service Task 6: Metrics Report -->
+    <serviceTask id="metrics_report" name="Create Metrics Report">
+      <extensionElements>
+        <serviceConfiguration xmlns="http://example.org/service">
+          <function>
+            <moduleName>AI Agent</moduleName>
+            <functionName>execute_agent_advanced</functionName>
+            <parameters>
+              <parameter name="agent_name" value="Launch Metrics Specialist"/>
+              <parameter name="description" value="You are a product launch performance analyst who specializes in tracking and analyzing launch KPIs."/>
+              <parameter name="tools" value="[]"/>
+              <parameter name="prompt" value="Convert the KPI bullets below into a launch-performance snapshot for **{company_name}** suitable for an executive dashboard.&#10;&#10;## Key Performance Indicators&#10;| Metric | Value / Detail | Source |&#10;|---|---|---|&#10;| … | … | … |  (include one row per KPI)&#10;&#10;## Qualitative Signals&#10;• Bullet list of notable qualitative insights (max 5).&#10;&#10;## Summary &amp; Implications&#10;Brief paragraph (&lt;=120 words) highlighting what the metrics imply about launch success and next steps.&#10;&#10;KPI Bullets:&#10;{metrics_bullets}"/>
+            </parameters>
+          </function>
+        </serviceConfiguration>
+        <resultVariable name="metrics_report_result" />
+        <incoming>Flow_6</incoming>
+        <outgoing>Flow_7</outgoing>
+      </serviceTask>
+    <sequenceFlow id="Flow_6" sourceRef="metrics_analysis" targetRef="metrics_report" />
+
+    <endEvent id="EndEvent_1" name="End">
+        <incoming>Flow_7</incoming>
+    </endEvent>
+    <sequenceFlow id="Flow_7" sourceRef="metrics_report" targetRef="EndEvent_1" />
+  </process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="product_intelligence_workflow">
+      <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_1">
+        <dc:Bounds x="152" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_enter_company_details" bpmnElement="enter_company_details">
+        <dc:Bounds x="240" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_competitor_analysis" bpmnElement="competitor_analysis">
+        <dc:Bounds x="400" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_competitor_report" bpmnElement="competitor_report">
+        <dc:Bounds x="560" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_sentiment_analysis" bpmnElement="sentiment_analysis">
+        <dc:Bounds x="720" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_sentiment_report" bpmnElement="sentiment_report">
+        <dc:Bounds x="880" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_metrics_analysis" bpmnElement="metrics_analysis">
+        <dc:Bounds x="1040" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_metrics_report" bpmnElement="metrics_report">
+        <dc:Bounds x="1200" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndEvent_1" bpmnElement="EndEvent_1">
+        <dc:Bounds x="1360" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Flow_0" bpmnElement="Flow_0">
+        <di:waypoint x="188" y="120" />
+        <di:waypoint x="240" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_1" bpmnElement="Flow_1">
+        <di:waypoint x="340" y="120" />
+        <di:waypoint x="400" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_2" bpmnElement="Flow_2">
+        <di:waypoint x="500" y="120" />
+        <di:waypoint x="560" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_3" bpmnElement="Flow_3">
+        <di:waypoint x="660" y="120" />
+        <di:waypoint x="720" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_4" bpmnElement="Flow_4">
+        <di:waypoint x="820" y="120" />
+        <di:waypoint x="880" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_5" bpmnElement="Flow_5">
+        <di:waypoint x="980" y="120" />
+        <di:waypoint x="1040" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_6" bpmnElement="Flow_6">
+        <di:waypoint x="1140" y="120" />
+        <di:waypoint x="1200" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_7" bpmnElement="Flow_7">
+        <di:waypoint x="1300" y="120" />
+        <di:waypoint x="1360" y="120" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
